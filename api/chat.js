@@ -12,7 +12,8 @@ export default async function handler(req, res) {
 
   // Cek apakah API Key sudah ada di environment variable
   if (!process.env.API_KEY) {
-    return res.status(500).json({ error: "Server misconfiguration: API_KEY missing in Vercel Settings" });
+    console.error("API_KEY is missing in Vercel environment variables.");
+    return res.status(500).json({ error: "Server misconfiguration: API_KEY missing." });
   }
 
   try {
@@ -20,14 +21,19 @@ export default async function handler(req, res) {
     const { history, message, attachments, systemInstruction } = req.body;
 
     // 1. Prepare content parts
+    // FIX: SDK expects 'message' to be a string OR an array of Parts.
+    // Do NOT wrap it in { parts: [...] }.
     let contents = message;
     
-    // If there are attachments, we need to construct a complex content object
     if (attachments && attachments.length > 0) {
       const parts = [];
+      
+      // Add text part if exists
       if (message && message.trim()) {
         parts.push({ text: message });
       }
+      
+      // Add attachment parts
       attachments.forEach(att => {
         parts.push({
           inlineData: {
@@ -36,11 +42,13 @@ export default async function handler(req, res) {
           }
         });
       });
-      contents = { parts };
+      
+      contents = parts; // Direct Array of Parts
     }
 
     // 2. Format History for Gemini SDK
-    const validHistory = history.map(h => ({
+    // Ensure we don't send empty text parts which can cause API errors
+    const validHistory = (history || []).map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: [{ text: h.text }]
     }));
@@ -66,6 +74,8 @@ export default async function handler(req, res) {
     });
 
     for await (const chunk of resultStream) {
+      // FIX: The new SDK returns chunk as GenerateContentResponse.
+      // We access .text property directly.
       if (chunk.text) {
         res.write(chunk.text);
       }
@@ -74,9 +84,11 @@ export default async function handler(req, res) {
     res.end();
 
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("API Error Details:", error);
+    // If headers haven't been sent, send JSON error. 
+    // If streaming started, we can't send JSON, just end the stream.
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message || "Internal Server Error" });
     } else {
       res.end();
     }

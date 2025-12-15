@@ -1,7 +1,19 @@
+import { GoogleGenAI, Content, Part } from "@google/genai";
 import { MessageObject, Role, Attachment } from "../types";
 
-// NOTE: We no longer import GoogleGenAI here to reduce bundle size 
-// and prevent security risks. The logic moves to /api/chat.js
+// Helper untuk validasi key
+const getApiKey = () => {
+    // @ts-ignore
+    const key = process.env.API_KEY;
+    if (!key || key.startsWith("YOUR_API")) {
+        console.error("API Key is missing or invalid");
+        return null;
+    }
+    return key;
+}
+
+const apiKey = getApiKey();
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const streamChatResponse = async (
   currentHistory: MessageObject[],
@@ -10,57 +22,76 @@ export const streamChatResponse = async (
   systemInstruction: string,
   onChunk: (chunkText: string) => void
 ): Promise<void> => {
+  if (!ai) {
+      throw new Error("API Key belum dipasang. Cek file .env di root project.");
+  }
+
   try {
-    // 1. Prepare payload for our serverless backend
-    // We filter history to keep payload size manageable
-    const historyForApi = currentHistory
-      .filter(msg => !msg.isStreaming && msg.text.trim() !== '')
+    const modelId = 'gemini-2.5-flash';
+
+    // Filter history agar bersih dari pesan error/kosong
+    const historyForSdk: Content[] = currentHistory
+      .filter(msg => !msg.isStreaming && msg.text && msg.text.trim() !== '')
       .map(msg => ({
-        role: msg.role,
-        text: msg.text
-        // We generally don't send old attachments back to save bandwidth, 
-        // unless strictly necessary for context
+        role: msg.role === Role.USER ? 'user' : 'model',
+        parts: [{ text: msg.text }]
       }));
 
-    const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const chat = ai.chats.create({
+      model: modelId,
+      config: {
+        systemInstruction: systemInstruction,
       },
-      body: JSON.stringify({
-        history: historyForApi,
-        message: userMessage,
-        attachments,
-        systemInstruction,
-      }),
+      history: historyForSdk,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-    }
+    let messageContent: string | Part[] = userMessage;
 
-    if (!response.body) {
-      throw new Error("ReadableStream not supported in this browser.");
-    }
-
-    // 2. Read the stream from our backend
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let done = false;
-
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
+    // Handle Attachments (Images/Videos)
+    if (attachments && attachments.length > 0) {
+      const parts: Part[] = [];
       
-      if (value) {
-        const chunkValue = decoder.decode(value, { stream: true });
-        onChunk(chunkValue);
+      if (userMessage && userMessage.trim()) {
+        parts.push({ text: userMessage });
       }
+      
+      attachments.forEach(att => {
+        parts.push({
+          inlineData: {
+            mimeType: att.mimeType,
+            data: att.data 
+          }
+        });
+      });
+      
+      messageContent = parts;
+    }
+
+    const resultStream = await chat.sendMessageStream({
+      message: messageContent,
+    });
+
+    for await (const chunk of resultStream) {
+        const text = chunk.text;
+        if (text) {
+            onChunk(text);
+        }
     }
 
   } catch (error: any) {
     console.error("Chat Service Error:", error);
-    throw new Error("Jaringan lo ampas atau server lagi maintenance. Coba lagi bentar.");
+    
+    let errorMessage = "Jaringan error atau kuota habis.";
+    
+    // Deteksi error spesifik
+    if (error.message?.includes('API_KEY')) {
+        errorMessage = "API Key bermasalah. Pastikan .env sudah benar.";
+    } else if (error.message?.includes('400')) {
+        errorMessage = "Format request ditolak oleh Google (400 Bad Request).";
+    } else if (error.message?.includes('429')) {
+        errorMessage = "Kebanyakan request bro, santai dulu (Rate Limit).";
+    }
+
+    throw new Error(errorMessage);
   }
 };
