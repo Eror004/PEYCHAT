@@ -9,6 +9,7 @@ export default defineConfig(({ mode }): UserConfig => {
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   // Prioritize process.env (Vercel System Env) -> env file (.env)
+  // Vercel menyuntikkan env variables saat build time untuk Vite
   const apiKey = process.env.API_KEY || env.API_KEY;
 
   return {
