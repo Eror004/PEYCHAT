@@ -1,24 +1,25 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Initialize Gemini on the server side
-// process.env.API_KEY otomatis ada di Serverless Function Vercel
-const ai = process.env.API_KEY 
-  ? new GoogleGenAI({ apiKey: process.env.API_KEY }) 
-  : null;
-
 export default async function handler(req, res) {
   // 1. Validasi Method
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // 2. Validasi API Key Server Side
-  if (!ai) {
-    console.error("API_KEY is missing in Vercel Environment Variables.");
-    return res.status(500).json({ error: "Server Error: API Key belum disetting di Vercel." });
+  // 2. Ambil API Key saat request masuk (Runtime)
+  // PERBAIKAN: Kita baca PEYY_KEY (sesuai screenshot) atau API_KEY (cadangan)
+  const apiKey = process.env.PEYY_KEY || process.env.API_KEY;
+
+  // Debug log untuk cek di Vercel Logs
+  if (!apiKey) {
+    console.error("CRITICAL ERROR: PEYY_KEY or API_KEY is undefined");
+    return res.status(500).json({ error: "Server Error: API Key (PEYY_KEY) belum terbaca di Vercel." });
   }
 
   try {
+    // Inisialisasi AI instance setiap request
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+
     const { history, message, attachments, systemInstruction } = req.body;
 
     // 3. Persiapkan Message Content (Text + Images)
@@ -41,13 +42,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Fallback jika kosong (misal user cuma kirim spasi)
+    // Fallback jika kosong
     if (contents.length === 0) {
        return res.status(400).json({ error: "Pesan tidak boleh kosong." });
     }
 
     // 4. Format History
-    // Mapping dari format UI ke format SDK
     const validHistory = (history || []).map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: [{ text: h.text }]
@@ -84,15 +84,14 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("Backend API Error:", error);
     
-    // Jika header belum dikirim, kirim JSON error
     if (!res.headersSent) {
       let msg = "Internal Server Error";
-      if (error.message?.includes('API_KEY')) msg = "Invalid API Key configuration.";
+      // Cek error spesifik dari Google
+      if (error.message?.includes('API_KEY') || error.message?.includes('key')) msg = "Invalid API Key. Cek PEYY_KEY di Vercel.";
       if (error.message?.includes('429')) msg = "Server lagi sibuk (Rate Limit). Coba lagi.";
       
       res.status(500).json({ error: msg });
     } else {
-      // Jika stream sudah jalan, kita tidak bisa kirim JSON, matikan saja
       res.end();
     }
   }
