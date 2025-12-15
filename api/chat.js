@@ -14,8 +14,8 @@ export default async function handler(req, res) {
       process.env.PEYY_KEY_3,
       process.env.PEYY_KEY_4,
       process.env.PEYY_KEY_5,
-      process.env.PEYY_KEY_6, // Tambahan baru
-      process.env.PEYY_KEY_7, // Tambahan baru
+      process.env.PEYY_KEY_6,
+      process.env.PEYY_KEY_7,
       process.env.API_KEY
     ];
 
@@ -33,24 +33,24 @@ export default async function handler(req, res) {
     const { history, message, attachments, systemInstruction } = req.body;
 
     // --- PREPARE DATA ---
-    const MAX_HISTORY = 10; // Kurangi sedikit lagi biar aman
+    const MAX_HISTORY = 10;
     let processedHistory = history || [];
     
     // Pastikan history valid (Hapus pesan kosong/error)
     processedHistory = processedHistory
-        .filter(h => h.text && h.text.trim().length > 0) // Hapus pesan kosong
-        .slice(-MAX_HISTORY); // Ambil N terakhir
+        .filter(h => h.text && h.text.trim().length > 0) 
+        .slice(-MAX_HISTORY); 
 
     const validHistory = processedHistory.map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: [{ text: h.text }]
     }));
 
-    // Prepare Contents
+    // --- CONSTRUCT CONTENTS (URUTAN PENTING UNTUK VISION!) ---
+    // Gemini lebih suka [Image, Text] daripada [Text, Image] untuk konteks yang lebih baik.
     let contents = [];
-    if (message && typeof message === 'string' && message.trim()) {
-      contents.push({ text: message });
-    }
+
+    // 1. Masukkan Attachments (Gambar/Video) DULUAN
     if (attachments && Array.isArray(attachments)) {
       attachments.forEach(att => {
         contents.push({
@@ -62,12 +62,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // 2. Masukkan Text KEMUDIAN
+    if (message && typeof message === 'string' && message.trim()) {
+      contents.push({ text: message });
+    }
+
+    // Kalau user cuma kirim gambar tanpa text, kasih text default agar tidak error
+    if (contents.length > 0 && !contents.some(c => c.text)) {
+        contents.push({ text: "Jelaskan gambar ini." });
+    }
+
     if (contents.length === 0) {
        return res.status(400).json({ error: "Pesan tidak boleh kosong." });
     }
 
     // --- LOGIC ROTASI KUNCI (INSTANT FAILOVER) ---
-    // Shuffle keys
     const shuffledKeys = availableKeys.sort(() => 0.5 - Math.random());
     
     let lastError = null;
@@ -84,6 +93,7 @@ export default async function handler(req, res) {
               history: validHistory,
           });
 
+          // Kirim array contents (Image + Text)
           resultStream = await chat.sendMessageStream({ message: contents });
           success = true;
           break; // BERHASIL! Keluar loop.
@@ -95,17 +105,20 @@ export default async function handler(req, res) {
           
           if (isRateLimit) {
               console.warn(`⚠️ Key ...${currentKey.slice(-4)} sibuk. Ganti key lain...`);
-              continue; // LANGSUNG coba key berikutnya tanpa delay (biar gak timeout)
+              continue; // LANGSUNG coba key berikutnya tanpa delay
           } else {
-              // Jika error lain (misal API Key invalid), catat tapi coba key lain aja jaga-jaga
               console.error(`❌ Key ...${currentKey.slice(-4)} error:`, err.message);
+              // Jika error karena 'INVALID_ARGUMENT' (biasanya format gambar salah), jangan retry, langsung stop
+              if (err.message?.includes('INVALID_ARGUMENT') || err.message?.includes('400')) {
+                   return res.status(400).json({ error: "Format gambar tidak didukung atau rusak." });
+              }
               continue; 
           }
       }
     }
 
     if (!success) {
-      const errorMsg = lastError?.message || "Server Google lagi sibuk banget (Semua Key Limit).";
+      const errorMsg = lastError?.message || "Server sibuk.";
       console.error("All keys failed. Last error:", lastError);
       return res.status(503).json({ error: `Gagal: ${errorMsg}` });
     }
@@ -125,7 +138,6 @@ export default async function handler(req, res) {
 
   } catch (globalError) {
     console.error("Fatal Handler Error:", globalError);
-    // Pastikan tidak mengirim response double
     if (!res.headersSent) {
         res.status(500).json({ error: "Internal Server Error: " + globalError.message });
     }

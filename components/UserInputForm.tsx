@@ -25,9 +25,12 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Simple validation (limit 5MB for demo performance)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("File kegedean bestie! Max 5MB ya.");
+    // VALIDASI UKURAN FILE: Max 3MB (Vercel Serverless limit body ~4.5MB, Base64 adds 33%)
+    const MAX_SIZE_MB = 3;
+    if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+      alert(`Waduh, gambarnya kegedean! Maksimal ${MAX_SIZE_MB}MB ya biar server gak bengek.`);
+      // Reset input agar user bisa pilih file lain
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
@@ -55,6 +58,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
 
   const removeAttachment = () => {
     setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
@@ -64,6 +68,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
     onSendMessage(input.trim(), attachment ? [attachment] : undefined);
     setInput('');
     setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset file input
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
   };
 
@@ -113,13 +118,13 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
                 ref={fileInputRef} 
                 onChange={handleFileSelect} 
                 className="hidden" 
-                accept="image/*,video/*"
+                accept="image/*"
             />
             <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="text-pey-muted hover:text-pey-accent hover:rotate-12 transition-all p-1"
-                title="Add photo or video"
+                title="Add photo"
                 disabled={isLoading}
             >
                 <Paperclip size={22} strokeWidth={2} />
@@ -131,7 +136,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={attachment ? "Ada yang mau ditanyain soal ini?" : "Tanya TUAN PEY..."}
+          placeholder={attachment ? "Ada yang mau ditanyain soal gambar ini?" : "Tanya TUAN PEY..."}
           rows={1}
           className="w-full bg-transparent text-pey-text placeholder-pey-muted px-2 py-3 focus:outline-none resize-none max-h-32 min-h-[50px] font-sans font-medium text-base sm:text-lg"
           disabled={isLoading}
