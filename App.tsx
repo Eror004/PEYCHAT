@@ -75,11 +75,12 @@ const PERSONAS: Persona[] = [
 ];
 
 // Voice Presets using Gemini AI Voices
+// Rebranded to focus on "Deep/Heavy" male voices as requested.
 const VOICE_PRESETS: VoicePreset[] = [
-  { id: 'fenrir', name: 'Tuan Pey (Fenrir)', geminiId: 'Fenrir', description: 'Berat, Berwibawa, Alpha Male' },
-  { id: 'puck', name: 'Cowok Santuy (Puck)', geminiId: 'Puck', description: 'Ringan, Energetik, Bestie' },
-  { id: 'charon', name: 'Cowok Deep (Charon)', geminiId: 'Charon', description: 'Dalam, Tenang, Misterius' },
-  { id: 'kore', name: 'Cewek Kalem (Kore)', geminiId: 'Kore', description: 'Lembut, Santai' },
+  { id: 'fenrir', name: 'Tuan Pey (Alpha Deep)', geminiId: 'Fenrir', description: 'Suara UTAMA. Berat, Ngebass, Maskulin Abis.' },
+  { id: 'charon', name: 'Deep Mystery', geminiId: 'Charon', description: 'Suara sangat dalam (Deep Low), tenang, dan misterius.' },
+  { id: 'zephyr', name: 'Gentle Male', geminiId: 'Zephyr', description: 'Suara cowok lembut, sopan, dan classy.' },
+  { id: 'puck', name: 'Energetic Boy', geminiId: 'Puck', description: 'Suara cowok yang lebih ringan dan santai.' },
 ];
 
 const SUGGESTIONS = [
