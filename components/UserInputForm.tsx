@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, Paperclip, X, Image as ImageIcon, FileVideo } from 'lucide-react';
+import { Send, Paperclip, X, FileVideo, Mic, MicOff } from 'lucide-react';
 import { Attachment } from '../types';
 
 interface UserInputFormProps {
@@ -10,8 +10,40 @@ interface UserInputFormProps {
 export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isLoading }) => {
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'id-ID'; // Set Bahasa Indonesia
+
+        recognition.onresult = (event: any) => {
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                }
+            }
+            if (finalTranscript) {
+                setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
+            }
+        };
+
+        recognition.onend = () => {
+            setIsListening(false);
+        };
+
+        recognitionRef.current = recognition;
+    }
+  }, []);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -20,6 +52,21 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
   }, [input]);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) {
+        alert("Browser kamu gak support fitur suara nih. Coba pake Chrome/Edge ya!");
+        return;
+    }
+
+    if (isListening) {
+        recognitionRef.current.stop();
+        setIsListening(false);
+    } else {
+        recognitionRef.current.start();
+        setIsListening(true);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -65,6 +112,12 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
     e?.preventDefault();
     if ((!input.trim() && !attachment) || isLoading) return;
     
+    // Stop recording if active
+    if (isListening && recognitionRef.current) {
+        recognitionRef.current.stop();
+        setIsListening(false);
+    }
+
     onSendMessage(input.trim(), attachment ? [attachment] : undefined);
     setInput('');
     setAttachment(null);
@@ -109,7 +162,9 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
 
       <form
         onSubmit={handleSubmit}
-        className="relative flex items-end gap-2 p-2 bg-pey-card/90 backdrop-blur-2xl border border-pey-border rounded-[2rem] shadow-2xl transition-all focus-within:ring-2 focus-within:ring-pey-accent/50 focus-within:border-pey-accent"
+        className={`relative flex items-end gap-2 p-2 bg-pey-card/90 backdrop-blur-2xl border rounded-[2rem] shadow-2xl transition-all duration-300 focus-within:ring-2 focus-within:ring-pey-accent/50 ${
+            isListening ? 'border-red-500/50 ring-2 ring-red-500/20' : 'border-pey-border focus-within:border-pey-accent'
+        }`}
       >
         <div className="pl-3 pb-3 flex gap-2">
             {/* File Upload Button */}
@@ -129,6 +184,21 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
             >
                 <Paperclip size={22} strokeWidth={2} />
             </button>
+
+            {/* Microphone Button */}
+            <button
+                type="button"
+                onClick={toggleListening}
+                className={`transition-all p-1 rounded-full ${
+                    isListening 
+                    ? 'text-red-500 animate-pulse bg-red-500/10' 
+                    : 'text-pey-muted hover:text-pey-accent hover:bg-pey-accent/10'
+                }`}
+                title={isListening ? "Stop Listening" : "Speak (Bahasa Indonesia)"}
+                disabled={isLoading}
+            >
+                {isListening ? <MicOff size={22} strokeWidth={2} /> : <Mic size={22} strokeWidth={2} />}
+            </button>
         </div>
         
         <textarea
@@ -136,7 +206,13 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={attachment ? "Ada yang mau ditanyain soal gambar ini?" : "Tanya TUAN PEY..."}
+          placeholder={
+              isListening 
+              ? "Lagi dengerin kamu ngomong..." 
+              : attachment 
+                ? "Ada yang mau ditanyain soal gambar ini?" 
+                : "Ketik atau ngomong langsung..."
+          }
           rows={1}
           className="w-full bg-transparent text-pey-text placeholder-pey-muted px-2 py-3 focus:outline-none resize-none max-h-32 min-h-[50px] font-sans font-medium text-base sm:text-lg"
           disabled={isLoading}
@@ -158,6 +234,13 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           )}
         </button>
       </form>
+      
+      {/* Listening Indicator Overlay (Optional Visual) */}
+      {isListening && (
+          <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs font-bold px-3 py-1 rounded-full animate-bounce shadow-lg backdrop-blur-sm z-50">
+              ● LISTENING...
+          </div>
+      )}
     </div>
   );
 };
