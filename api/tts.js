@@ -50,8 +50,9 @@ export default async function handler(req, res) {
                     responseModalities: ['AUDIO'],
                     speechConfig: {
                         voiceConfig: {
+                            // ENFORCE FENRIR AS DEFAULT
                             prebuiltVoiceConfig: { 
-                                voiceName: voiceName || 'Fenrir' // Default ke suara cowok deep
+                                voiceName: voiceName || 'Fenrir' 
                             },
                         },
                     },
