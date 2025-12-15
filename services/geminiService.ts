@@ -5,14 +5,19 @@ import { MessageObject, Role, Attachment } from "../types";
 const getApiKey = () => {
     // @ts-ignore
     const key = process.env.API_KEY;
-    if (!key || key.startsWith("YOUR_API")) {
-        console.error("API Key is missing or invalid");
+    
+    // Debugging (Akan muncul di Console Browser F12)
+    if (!key) {
+        console.error("CRITICAL ERROR: API_KEY is missing in the browser environment.");
+        console.error("Did you set the Environment Variable 'API_KEY' in Vercel Settings?");
         return null;
     }
+    
     return key;
 }
 
 const apiKey = getApiKey();
+// Initialize only if key exists to prevent immediate crash on load
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
 export const streamChatResponse = async (
@@ -22,8 +27,10 @@ export const streamChatResponse = async (
   systemInstruction: string,
   onChunk: (chunkText: string) => void
 ): Promise<void> => {
+  
   if (!ai) {
-      throw new Error("API Key belum dipasang. Cek file .env di root project.");
+      console.error("GoogleGenAI client not initialized.");
+      throw new Error("API Key hilang. Cek Setting Environment Vercel lo.");
   }
 
   try {
@@ -79,17 +86,19 @@ export const streamChatResponse = async (
     }
 
   } catch (error: any) {
-    console.error("Chat Service Error:", error);
+    console.error("Chat Service Error Full:", error);
     
     let errorMessage = "Jaringan error atau kuota habis.";
     
     // Deteksi error spesifik
     if (error.message?.includes('API_KEY')) {
-        errorMessage = "API Key bermasalah. Pastikan .env sudah benar.";
+        errorMessage = "API Key bermasalah. Pastikan Variable API_KEY ada di Vercel.";
     } else if (error.message?.includes('400')) {
-        errorMessage = "Format request ditolak oleh Google (400 Bad Request).";
+        errorMessage = "Request ditolak Google (400). Mungkin file kegedean?";
     } else if (error.message?.includes('429')) {
-        errorMessage = "Kebanyakan request bro, santai dulu (Rate Limit).";
+        errorMessage = "Kebanyakan request (Rate Limit). Istirahat dulu.";
+    } else if (error.message?.includes('503') || error.message?.includes('Overloaded')) {
+        errorMessage = "Server Google lagi overload. Coba lagi bentar.";
     }
 
     throw new Error(errorMessage);

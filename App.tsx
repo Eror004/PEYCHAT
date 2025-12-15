@@ -235,12 +235,18 @@ const App: React.FC = () => {
         )
       );
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      const errorMessage = error.message || "Unknown error";
+      
       setConversationHistory((prev) => 
         prev.map((msg) => 
             msg.id === botMsgId 
-            ? { ...msg, text: msg.text + "\n\n*[System Error: Duh, servernya ngelag anj. Coba lagi.]*", isStreaming: false } 
+            ? { 
+                ...msg, 
+                text: msg.text + `\n\n*[SYSTEM ALERT: ${errorMessage}]*`, 
+                isStreaming: false 
+              } 
             : msg
         )
       );
@@ -291,7 +297,7 @@ const App: React.FC = () => {
                     <p className="text-pey-muted max-w-md text-lg leading-relaxed mb-4 font-medium">
                         Your toxic digital bestie. No filter, just facts.
                         <span className="block mt-3 text-xs font-bold font-mono tracking-widest uppercase opacity-70">
-                             v4.2 • {currentPersona.name}
+                             v4.3 • {currentPersona.name}
                         </span>
                     </p>
 
