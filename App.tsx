@@ -75,10 +75,10 @@ const PERSONAS: Persona[] = [
 ];
 
 // Voice Presets using Gemini AI Voices
-// Fenrir = The Deepest / Most Masculine
+// UPDATED: CHARON IS NOW DEFAULT (The Deepest/Low Tone)
 const VOICE_PRESETS: VoicePreset[] = [
-  { id: 'fenrir', name: 'Tuan Pey (Alpha Deep)', geminiId: 'Fenrir', description: 'Suara UTAMA. Berat, Ngebass, Maskulin Abis.' },
-  { id: 'charon', name: 'Deep Mystery', geminiId: 'Charon', description: 'Suara low-tone, tenang, dan misterius.' },
+  { id: 'charon', name: 'Tuan Pey (Utama)', geminiId: 'Charon', description: 'Suara UTAMA. Sangat dalam, berat, dan misterius.' },
+  { id: 'fenrir', name: 'Alpha Wolf', geminiId: 'Fenrir', description: 'Suara berat, kasar, dan maskulin abis.' },
   { id: 'zephyr', name: 'Gentle Male', geminiId: 'Zephyr', description: 'Suara cowok sopan dan lembut.' },
   { id: 'puck', name: 'Energetic', geminiId: 'Puck', description: 'Suara cowok ringan dan antusias.' },
 ];
@@ -138,8 +138,8 @@ const App: React.FC = () => {
   // New State for Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentPersonaId, setCurrentPersonaId] = useState<string>('asisten');
-  // DEFAULT VOICE: 'fenrir' (Deepest)
-  const [currentVoiceId, setCurrentVoiceId] = useState<string>('fenrir');
+  // DEFAULT VOICE: 'charon' (The new Deepest Main)
+  const [currentVoiceId, setCurrentVoiceId] = useState<string>('charon');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

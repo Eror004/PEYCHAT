@@ -50,9 +50,9 @@ export default async function handler(req, res) {
                     responseModalities: ['AUDIO'],
                     speechConfig: {
                         voiceConfig: {
-                            // ENFORCE FENRIR AS DEFAULT
+                            // ENFORCE CHARON AS DEFAULT (Suara Utama Deep/Mystery)
                             prebuiltVoiceConfig: { 
-                                voiceName: voiceName || 'Fenrir' 
+                                voiceName: voiceName || 'Charon' 
                             },
                         },
                     },
