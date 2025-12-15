@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageObject, Role, ThemeName, ThemeColors, Attachment, Persona, VoicePreset } from './types';
-import { streamChatResponse } from './services/geminiService';
+import { streamChatResponse, generateImage } from './services/geminiService';
 import { MessageBubble } from './components/MessageBubble';
 import { UserInputForm } from './components/UserInputForm';
 import { Header } from './components/Header';
@@ -194,7 +194,7 @@ const App: React.FC = () => {
       setCurrentTheme(themes[nextIndex]);
   };
 
-  const handleSendMessage = async (text: string, attachments?: Attachment[]) => {
+  const handleSendMessage = async (text: string, attachments?: Attachment[], isImageGen?: boolean) => {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || isLoading) return;
 
     const timestamp = Date.now();
@@ -209,10 +209,11 @@ const App: React.FC = () => {
     };
 
     const botMsgId = generateId();
+    // Jika Image Gen, tampilkan text placeholder beda
     const placeholderBotMsg: MessageObject = {
       id: botMsgId,
       role: Role.MODEL,
-      text: '', 
+      text: isImageGen ? '🎨 *Sedang melukis imajinasi kamu...*' : '', 
       timestamp: timestamp + 1,
       isStreaming: true,
     };
@@ -221,29 +222,51 @@ const App: React.FC = () => {
     setIsLoading(true);
 
     try {
-      let gatheredText = '';
-
-      // Pass the current persona's instruction to the service
-      await streamChatResponse(
-        [...conversationHistory, userMsg], 
-        text, 
-        attachments, 
-        currentPersona.systemInstruction, 
-        (chunkText) => {
-          gatheredText += chunkText;
+      if (isImageGen) {
+          // --- IMAGE GENERATION MODE ---
+          const base64Image = await generateImage(text);
+          
           setConversationHistory((prev) => 
             prev.map((msg) => 
-              msg.id === botMsgId ? { ...msg, text: gatheredText } : msg
+                msg.id === botMsgId 
+                ? { 
+                    ...msg, 
+                    text: `Nih, hasil gambaran: "${text}"`, 
+                    isStreaming: false,
+                    attachments: [{
+                        type: 'image',
+                        mimeType: 'image/png',
+                        data: base64Image
+                    }]
+                  } 
+                : msg
             )
           );
-        }
-      );
 
-      setConversationHistory((prev) => 
-        prev.map((msg) => 
-          msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
-        )
-      );
+      } else {
+          // --- STANDARD CHAT MODE ---
+          let gatheredText = '';
+          await streamChatResponse(
+            [...conversationHistory, userMsg], 
+            text, 
+            attachments, 
+            currentPersona.systemInstruction, 
+            (chunkText) => {
+              gatheredText += chunkText;
+              setConversationHistory((prev) => 
+                prev.map((msg) => 
+                  msg.id === botMsgId ? { ...msg, text: gatheredText } : msg
+                )
+              );
+            }
+          );
+
+          setConversationHistory((prev) => 
+            prev.map((msg) => 
+              msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
+            )
+          );
+      }
 
     } catch (error: any) {
       console.error(error);
@@ -254,7 +277,9 @@ const App: React.FC = () => {
             msg.id === botMsgId 
             ? { 
                 ...msg, 
-                text: msg.text + `\n\n*[SYSTEM ALERT: ${errorMessage}]*`, 
+                text: isImageGen 
+                    ? `Gagal nggambar nih: ${errorMessage}` 
+                    : msg.text + `\n\n*[SYSTEM ALERT: ${errorMessage}]*`, 
                 isStreaming: false 
               } 
             : msg
@@ -317,7 +342,7 @@ const App: React.FC = () => {
                             Your toxic digital bestie. No filter, just facts.
                         </p>
                         <div className="flex items-center gap-2 text-xs font-bold font-mono tracking-widest uppercase opacity-80 text-pey-accent/80 bg-pey-accent/5 px-3 py-1.5 rounded-full border border-pey-accent/10">
-                             <Cpu size={12} /> v5.0 • UNLIMITED POWER
+                             <Cpu size={12} /> v5.5 • VISION + VOICE
                         </div>
                     </div>
 

@@ -63,3 +63,26 @@ export const streamChatResponse = async (
     throw new Error(error.message || "Gagal menghubungkan ke PEYCHAT brain.");
   }
 };
+
+export const generateImage = async (prompt: string): Promise<string> => {
+    try {
+        const response = await fetch('/api/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || "Gagal membuat gambar.");
+        }
+
+        const data = await response.json();
+        if (!data.image) throw new Error("Server tidak mengembalikan data gambar.");
+        
+        return data.image; // Base64 string
+    } catch (error: any) {
+        console.error("Image Gen Error:", error);
+        throw new Error(error.message || "Gagal generate gambar.");
+    }
+};

@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileVideo, Mic, MicOff } from 'lucide-react';
+import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles } from 'lucide-react';
 import { Attachment } from '../types';
 
 interface UserInputFormProps {
-  onSendMessage: (text: string, attachments?: Attachment[]) => void;
+  onSendMessage: (text: string, attachments?: Attachment[], isImageGen?: boolean) => void;
   isLoading: boolean;
 }
 
@@ -11,6 +11,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [isImageMode, setIsImageMode] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +69,22 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
     }
   };
 
+  const toggleImageMode = () => {
+      setIsImageMode(!isImageMode);
+      // Reset attachment jika masuk mode image gen (karena endpoint image gen biasanya prompt only di sini)
+      if (!isImageMode) {
+          setAttachment(null);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Disable file upload in image mode
+    if (isImageMode) {
+        alert("Matikan mode lukis dulu kalau mau kirim gambar!");
+        return;
+    }
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -118,11 +134,14 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
         setIsListening(false);
     }
 
-    onSendMessage(input.trim(), attachment ? [attachment] : undefined);
+    onSendMessage(input.trim(), attachment ? [attachment] : undefined, isImageMode);
     setInput('');
     setAttachment(null);
     if (fileInputRef.current) fileInputRef.current.value = ''; // Reset file input
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
+    
+    // Optional: Auto turn off image mode after send? 
+    // setIsImageMode(false); // Let's keep it active for multiple gens
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -160,13 +179,24 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
         </div>
       )}
 
+      {/* Mode Indicator Text */}
+      {isImageMode && (
+          <div className="ml-4 mb-1 text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 animate-pulse flex items-center gap-1">
+              <Sparkles size={12} /> MODE IMAJINASI (IMAGE GEN) AKTIF
+          </div>
+      )}
+
       <form
         onSubmit={handleSubmit}
-        className={`relative flex items-end gap-2 p-2 bg-pey-card/90 backdrop-blur-2xl border rounded-[2rem] shadow-2xl transition-all duration-300 focus-within:ring-2 focus-within:ring-pey-accent/50 ${
-            isListening ? 'border-red-500/50 ring-2 ring-red-500/20' : 'border-pey-border focus-within:border-pey-accent'
+        className={`relative flex items-end gap-2 p-2 bg-pey-card/90 backdrop-blur-2xl border rounded-[2rem] shadow-2xl transition-all duration-300 focus-within:ring-2 ${
+            isImageMode 
+             ? 'border-purple-500/50 ring-purple-500/20 shadow-purple-500/10' 
+             : isListening
+                ? 'border-red-500/50 ring-red-500/20 shadow-red-500/10'
+                : 'border-pey-border focus-within:ring-pey-accent/50 focus-within:border-pey-accent'
         }`}
       >
-        <div className="pl-3 pb-3 flex gap-2">
+        <div className="pl-3 pb-3 flex gap-1 sm:gap-2">
             {/* File Upload Button */}
             <input 
                 type="file" 
@@ -178,18 +208,33 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
             <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-pey-muted hover:text-pey-accent hover:rotate-12 transition-all p-1"
+                className={`transition-all p-1.5 rounded-full ${isImageMode ? 'opacity-30 cursor-not-allowed' : 'text-pey-muted hover:text-pey-accent hover:rotate-12'}`}
                 title="Add photo"
+                disabled={isLoading || isImageMode}
+            >
+                <Paperclip size={20} strokeWidth={2} />
+            </button>
+
+            {/* Image Gen Mode Button */}
+             <button
+                type="button"
+                onClick={toggleImageMode}
+                className={`transition-all p-1.5 rounded-full ${
+                    isImageMode
+                    ? 'text-white bg-gradient-to-tr from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30 rotate-12'
+                    : 'text-pey-muted hover:text-purple-400 hover:bg-purple-500/10'
+                }`}
+                title={isImageMode ? "Matikan Mode Lukis" : "Mode Imajinasi (Buat Gambar)"}
                 disabled={isLoading}
             >
-                <Paperclip size={22} strokeWidth={2} />
+                <Palette size={20} strokeWidth={2} />
             </button>
 
             {/* Microphone Button */}
             <button
                 type="button"
                 onClick={toggleListening}
-                className={`transition-all p-1 rounded-full ${
+                className={`transition-all p-1.5 rounded-full ${
                     isListening 
                     ? 'text-red-500 animate-pulse bg-red-500/10' 
                     : 'text-pey-muted hover:text-pey-accent hover:bg-pey-accent/10'
@@ -197,7 +242,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
                 title={isListening ? "Stop Listening" : "Speak (Bahasa Indonesia)"}
                 disabled={isLoading}
             >
-                {isListening ? <MicOff size={22} strokeWidth={2} /> : <Mic size={22} strokeWidth={2} />}
+                {isListening ? <MicOff size={20} strokeWidth={2} /> : <Mic size={20} strokeWidth={2} />}
             </button>
         </div>
         
@@ -207,11 +252,13 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-              isListening 
-              ? "Lagi dengerin kamu ngomong..." 
-              : attachment 
-                ? "Ada yang mau ditanyain soal gambar ini?" 
-                : "Ketik atau ngomong langsung..."
+              isImageMode
+              ? "Tuan Pey, tolong gambarin..."
+              : isListening 
+                ? "Lagi dengerin kamu..." 
+                : attachment 
+                    ? "Tanya soal gambar ini..." 
+                    : "Ketik pesan..."
           }
           rows={1}
           className="w-full bg-transparent text-pey-text placeholder-pey-muted px-2 py-3 focus:outline-none resize-none max-h-32 min-h-[50px] font-sans font-medium text-base sm:text-lg"
@@ -223,19 +270,21 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           disabled={(!input.trim() && !attachment) || isLoading}
           className={`w-12 h-12 rounded-full mb-0.5 mr-0.5 transition-all duration-300 flex items-center justify-center shrink-0 ${
             (input.trim() || attachment) && !isLoading
-              ? 'bg-pey-accent text-pey-bg hover:scale-110 hover:rotate-12 shadow-lg shadow-pey-accent/30'
+              ? isImageMode 
+                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:scale-110 shadow-lg shadow-purple-500/30'
+                : 'bg-pey-accent text-pey-bg hover:scale-110 hover:rotate-12 shadow-lg shadow-pey-accent/30'
               : 'bg-pey-bg border border-pey-border text-pey-muted cursor-not-allowed'
           }`}
         >
           {isLoading ? (
             <div className="w-5 h-5 border-2 border-pey-muted border-t-transparent rounded-full animate-spin" />
           ) : (
-            <Send size={22} strokeWidth={2.5} className={(input.trim() || attachment) ? 'ml-0.5' : ''} />
+            isImageMode ? <Sparkles size={22} strokeWidth={2.5} className="animate-pulse" /> : <Send size={22} strokeWidth={2.5} className={(input.trim() || attachment) ? 'ml-0.5' : ''} />
           )}
         </button>
       </form>
       
-      {/* Listening Indicator Overlay (Optional Visual) */}
+      {/* Listening Indicator Overlay */}
       {isListening && (
           <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs font-bold px-3 py-1 rounded-full animate-bounce shadow-lg backdrop-blur-sm z-50">
               ● LISTENING...
