@@ -1,72 +1,66 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { MessageObject, Role, Attachment } from "../types";
 
-// Initialize the client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// NOTE: We no longer import GoogleGenAI here to reduce bundle size 
+// and prevent security risks. The logic moves to /api/chat.js
 
 export const streamChatResponse = async (
   currentHistory: MessageObject[],
   userMessage: string,
   attachments: Attachment[] | undefined,
-  systemInstruction: string, // Changed: Now accepts dynamic instruction
+  systemInstruction: string,
   onChunk: (chunkText: string) => void
 ): Promise<void> => {
   try {
-    // 1. Transform internal history to Gemini API format
+    // 1. Prepare payload for our serverless backend
+    // We filter history to keep payload size manageable
     const historyForApi = currentHistory
       .filter(msg => !msg.isStreaming && msg.text.trim() !== '')
       .map(msg => ({
-        role: msg.role === Role.USER ? 'user' : 'model',
-        parts: [{ text: msg.text }], 
+        role: msg.role,
+        text: msg.text
+        // We generally don't send old attachments back to save bandwidth, 
+        // unless strictly necessary for context
       }));
 
-    // 2. Initialize Chat Session with Dynamic Instruction
-    const chat = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: systemInstruction,
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      history: historyForApi,
+      body: JSON.stringify({
+        history: historyForApi,
+        message: userMessage,
+        attachments,
+        systemInstruction,
+      }),
     });
 
-    // 3. Construct Message Payload
-    let messagePayload: any = userMessage;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+    }
 
-    if (attachments && attachments.length > 0) {
-      const parts = [];
+    if (!response.body) {
+      throw new Error("ReadableStream not supported in this browser.");
+    }
+
+    // 2. Read the stream from our backend
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
+
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
       
-      // Add text part if exists
-      if (userMessage.trim()) {
-        parts.push({ text: userMessage });
-      }
-
-      // Add attachment parts
-      attachments.forEach(att => {
-        parts.push({
-          inlineData: {
-            mimeType: att.mimeType,
-            data: att.data
-          }
-        });
-      });
-
-      messagePayload = parts;
-    }
-
-    // 4. Send Message Stream
-    const resultStream = await chat.sendMessageStream({
-      message: messagePayload,
-    });
-
-    // 5. Iterate through the stream
-    for await (const chunk of resultStream) {
-      const typedChunk = chunk as GenerateContentResponse;
-      if (typedChunk.text) {
-        onChunk(typedChunk.text);
+      if (value) {
+        const chunkValue = decoder.decode(value, { stream: true });
+        onChunk(chunkValue);
       }
     }
+
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    throw new Error(error.message || "Bentar, jaringan lo ampas kayaknya. Error nih.");
+    console.error("Chat Service Error:", error);
+    throw new Error("Jaringan lo ampas atau server lagi maintenance. Coba lagi bentar.");
   }
 };

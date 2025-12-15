@@ -112,7 +112,17 @@ const generateId = () => `msg-${Date.now()}-${Math.random().toString(36).substr(
 
 const App: React.FC = () => {
   // --- State Management ---
-  const [conversationHistory, setConversationHistory] = useState<MessageObject[]>([]);
+  
+  // Initialize from LocalStorage if available
+  const [conversationHistory, setConversationHistory] = useState<MessageObject[]>(() => {
+    try {
+        const saved = localStorage.getItem('peychat_history');
+        return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+        return [];
+    }
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('toxic');
   
@@ -128,6 +138,12 @@ const App: React.FC = () => {
   const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[1];
 
   // --- Effects ---
+  
+  // Persist history to LocalStorage
+  useEffect(() => {
+    localStorage.setItem('peychat_history', JSON.stringify(conversationHistory));
+  }, [conversationHistory]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [conversationHistory]);
@@ -148,18 +164,16 @@ const App: React.FC = () => {
 
   // --- Handlers ---
 
-  // REVISED: Flexible reset handler
   const handleClearChat = (force: boolean = false) => {
     if (!force) {
-        // Standard confirmation for Header button
         if (!window.confirm("Yakin mau hapus semua chat? Mulai dari nol nih?")) {
             return;
         }
     }
     
-    // Execute clear immediately
     setConversationHistory([]);
-    setIsLoading(false); // FORCE stop loading
+    localStorage.removeItem('peychat_history'); // Clear persistence
+    setIsLoading(false); 
     setIsSettingsOpen(false); 
   };
 
@@ -204,7 +218,7 @@ const App: React.FC = () => {
         [...conversationHistory, userMsg], 
         text, 
         attachments, 
-        currentPersona.systemInstruction, // Dynamic Persona!
+        currentPersona.systemInstruction, 
         (chunkText) => {
           gatheredText += chunkText;
           setConversationHistory((prev) => 
@@ -248,12 +262,12 @@ const App: React.FC = () => {
         voicePresets={VOICE_PRESETS}
         currentVoiceId={currentVoiceId}
         onSelectVoice={setCurrentVoiceId}
-        onReset={() => handleClearChat(true)} // FORCE clear (no confirm) from settings
+        onReset={() => handleClearChat(true)} 
       />
 
       <div className="relative z-10 flex flex-col h-full">
           <Header 
-            onReset={() => handleClearChat(false)} // Ask confirm from header
+            onReset={() => handleClearChat(false)} 
             currentTheme={currentTheme}
             onSwitchTheme={handleSwitchTheme}
             onOpenSettings={() => setIsSettingsOpen(true)}
