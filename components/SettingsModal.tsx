@@ -80,23 +80,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Voice Selection */}
           <section>
             <h3 className="text-sm font-bold text-pey-muted uppercase tracking-widest mb-4 flex items-center gap-2">
-               <Mic size={16} /> Tuning Suara (TTS)
+               <Mic size={16} /> Suara AI (Real Human)
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {voicePresets.map((voice) => (
                 <button
                   key={voice.id}
                   onClick={() => onSelectVoice(voice.id)}
-                  className={`p-3 rounded-xl border text-center transition-all ${
+                  className={`p-3 rounded-xl border text-left flex items-center justify-between transition-all ${
                     currentVoiceId === voice.id
                       ? 'bg-pey-secondary/10 border-pey-secondary text-pey-secondary'
                       : 'bg-pey-card border-pey-border text-pey-text hover:border-pey-text/30'
                   }`}
                 >
-                  <div className="font-semibold text-sm">{voice.name}</div>
-                  <div className="text-[10px] opacity-60 mt-1 font-mono">
-                    Pitch: {voice.pitch} | Rate: {voice.rate}
+                  <div>
+                    <div className="font-semibold text-sm">{voice.name}</div>
+                    <div className="text-[10px] opacity-60 mt-0.5 font-mono">
+                      {voice.description}
+                    </div>
                   </div>
+                  {currentVoiceId === voice.id && <Volume2 size={16} />}
                 </button>
               ))}
             </div>

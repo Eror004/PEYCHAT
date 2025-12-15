@@ -1,5 +1,8 @@
 {
   "name": "PEYCHATT",
   "description": "Gen Z style real-time AI chat assistant using Google Gemini API with streaming responses.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
 }

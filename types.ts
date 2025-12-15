@@ -25,7 +25,7 @@ export interface ChatState {
   error: string | null;
 }
 
-export type ThemeName = 'toxic' | 'lovecore' | 'cyber' | 'angel';
+export type ThemeName = 'toxic' | 'lovecore' | 'cyber' | 'angel' | 'pinky' | 'clean';
 
 export interface ThemeColors {
   bg: string;
@@ -51,6 +51,6 @@ export interface Persona {
 export interface VoicePreset {
   id: string;
   name: string;
-  pitch: number; // 0.5 - 1.5 (Lower is deeper/more male)
-  rate: number;  // 0.8 - 1.2
+  geminiId: string; // 'Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'
+  description: string;
 }

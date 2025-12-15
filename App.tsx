@@ -5,7 +5,7 @@ import { MessageBubble } from './components/MessageBubble';
 import { UserInputForm } from './components/UserInputForm';
 import { Header } from './components/Header';
 import { SettingsModal } from './components/SettingsModal';
-import { Sparkles, Zap, Flame, BrainCircuit } from 'lucide-react';
+import { Sparkles, Zap, Flame, BrainCircuit, Cpu } from 'lucide-react';
 
 // --- DATA DEFINITIONS ---
 
@@ -74,12 +74,12 @@ const PERSONAS: Persona[] = [
   }
 ];
 
-// Voice Presets to simulate different male characters via Pitch/Rate
+// Voice Presets using Gemini AI Voices
 const VOICE_PRESETS: VoicePreset[] = [
-  { id: 'deep', name: 'Cowok Cool (Deep)', pitch: 0.7, rate: 0.95 },
-  { id: 'chill', name: 'Cowok Santuy (Normal)', pitch: 0.9, rate: 1.0 },
-  { id: 'hype', name: 'Cowok Hype (Fast)', pitch: 1.1, rate: 1.15 },
-  { id: 'soft', name: 'Cowok Soft (Calm)', pitch: 0.8, rate: 0.85 },
+  { id: 'fenrir', name: 'Tuan Pey (Fenrir)', geminiId: 'Fenrir', description: 'Berat, Berwibawa, Alpha Male' },
+  { id: 'puck', name: 'Cowok Santuy (Puck)', geminiId: 'Puck', description: 'Ringan, Energetik, Bestie' },
+  { id: 'charon', name: 'Cowok Deep (Charon)', geminiId: 'Charon', description: 'Dalam, Tenang, Misterius' },
+  { id: 'kore', name: 'Cewek Kalem (Kore)', geminiId: 'Kore', description: 'Lembut, Santai' },
 ];
 
 const SUGGESTIONS = [
@@ -105,6 +105,14 @@ const THEMES: Record<ThemeName, ThemeColors> = {
     angel: {
         bg: '#fafafa', card: '#ffffff', text: '#18181b', textMuted: '#71717a',
         accent: '#3b82f6', accentHover: '#60a5fa', secondary: '#8b5cf6', border: 'rgba(0,0,0,0.06)',
+    },
+    pinky: {
+        bg: '#fff1f2', card: '#fff', text: '#881337', textMuted: '#be123c',
+        accent: '#fb7185', accentHover: '#f43f5e', secondary: '#fda4af', border: 'rgba(251, 113, 133, 0.2)',
+    },
+    clean: {
+        bg: '#ffffff', card: '#f4f4f5', text: '#09090b', textMuted: '#525252',
+        accent: '#18181b', accentHover: '#27272a', secondary: '#d4d4d8', border: 'rgba(24, 24, 27, 0.08)',
     }
 };
 
@@ -129,13 +137,13 @@ const App: React.FC = () => {
   // New State for Settings
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentPersonaId, setCurrentPersonaId] = useState<string>('asisten');
-  const [currentVoiceId, setCurrentVoiceId] = useState<string>('chill');
+  const [currentVoiceId, setCurrentVoiceId] = useState<string>('fenrir'); // Default to Fenrir (Deep Male)
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Derived state
   const currentPersona = PERSONAS.find(p => p.id === currentPersonaId) || PERSONAS[0];
-  const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[1];
+  const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[0];
 
   // --- Effects ---
   
@@ -178,7 +186,7 @@ const App: React.FC = () => {
   };
 
   const handleSwitchTheme = () => {
-      const themes: ThemeName[] = ['toxic', 'lovecore', 'cyber', 'angel'];
+      const themes: ThemeName[] = ['toxic', 'lovecore', 'cyber', 'angel', 'pinky', 'clean'];
       const currentIndex = themes.indexOf(currentTheme);
       const nextIndex = (currentIndex + 1) % themes.length;
       setCurrentTheme(themes[nextIndex]);
@@ -288,22 +296,32 @@ const App: React.FC = () => {
                         <div className="relative w-28 h-28 bg-pey-card rounded-[2rem] border border-pey-border flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-6 transition-transform duration-300">
                             <span className="text-6xl drop-shadow-sm">{currentPersona.icon}</span>
                         </div>
+                        {/* System Badge */}
+                        <div className="absolute -bottom-3 -right-3 bg-pey-bg border border-pey-accent/50 text-pey-accent text-[10px] font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            ONLINE
+                        </div>
                     </div>
                     
                     <h2 className="text-5xl md:text-7xl font-display font-bold mb-4 tracking-tighter">
                         <span className="text-pey-text">PEY</span><span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
                     </h2>
                     
-                    <p className="text-pey-muted max-w-md text-lg leading-relaxed mb-4 font-medium">
-                        Your toxic digital bestie. No filter, just facts.
-                        <span className="block mt-3 text-xs font-bold font-mono tracking-widest uppercase opacity-70">
-                             v4.3 • {currentPersona.name}
-                        </span>
-                    </p>
+                    <div className="flex flex-col items-center gap-2 mb-6">
+                        <p className="text-pey-muted max-w-md text-lg leading-relaxed font-medium">
+                            Your toxic digital bestie. No filter, just facts.
+                        </p>
+                        <div className="flex items-center gap-2 text-xs font-bold font-mono tracking-widest uppercase opacity-80 text-pey-accent/80 bg-pey-accent/5 px-3 py-1.5 rounded-full border border-pey-accent/10">
+                             <Cpu size={12} /> v5.0 • UNLIMITED POWER
+                        </div>
+                    </div>
 
                     {/* Active Mode Indicator */}
-                    <div className="mb-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-accent/10 border border-pey-accent/20 text-pey-accent text-sm font-bold animate-[pulse_3s_infinite]">
-                        Mode Aktif: {currentPersona.name}
+                    <div className="mb-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-card border border-pey-border text-pey-muted text-sm font-medium">
+                        Mode Aktif: <span className="text-pey-text font-bold">{currentPersona.name}</span>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg">

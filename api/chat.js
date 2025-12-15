@@ -1,44 +1,52 @@
 import { GoogleGenAI } from "@google/genai";
 
-// Fungsi helper untuk pause sejenak (delay)
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 export default async function handler(req, res) {
   // 1. Validasi Method
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // 2. Ambil API Key (Priority: PEYY_KEY -> API_KEY)
-  const apiKey = process.env.PEYY_KEY || process.env.API_KEY;
-
-  if (!apiKey) {
-    console.error("CRITICAL ERROR: PEYY_KEY or API_KEY is undefined");
-    return res.status(500).json({ error: "Server Error: API Key (PEYY_KEY) belum terbaca di Vercel." });
-  }
-
   try {
-    const ai = new GoogleGenAI({ apiKey: apiKey });
-    const { history, message, attachments, systemInstruction } = req.body;
+    // 2. KUMPULKAN SEMUA API KEY (THE AVENGERS - SQUAD 7)
+    const rawKeys = [
+      process.env.PEYY_KEY,
+      process.env.PEYY_KEY_2,
+      process.env.PEYY_KEY_3,
+      process.env.PEYY_KEY_4,
+      process.env.PEYY_KEY_5,
+      process.env.PEYY_KEY_6, // Tambahan baru
+      process.env.PEYY_KEY_7, // Tambahan baru
+      process.env.API_KEY
+    ];
 
-    // --- OPTIMISASI 1: HEMAT TOKEN (Pangkas History) ---
-    // Google Free Tier gampang kena limit kalau chat kepanjangan.
-    // Kita ambil 14 pesan terakhir saja. Ini cukup untuk konteks, tapi hemat token.
-    const MAX_HISTORY = 14; 
-    let processedHistory = history || [];
-    
-    if (processedHistory.length > MAX_HISTORY) {
-        // Ambil bagian akhir array saja
-        processedHistory = processedHistory.slice(processedHistory.length - MAX_HISTORY);
+    // Filter key yang kosong
+    const availableKeys = rawKeys.filter(k => k && k.trim().length > 0);
+
+    if (availableKeys.length === 0) {
+      console.error("CRITICAL ERROR: No API Keys found in Environment Variables.");
+      return res.status(500).json({ 
+        error: "Konfigurasi Server Salah: Tidak ada API Key yang ditemukan. Cek Vercel Settings." 
+      });
     }
 
-    // Pastikan format history valid untuk API
+    // 3. Parse Body & Validasi
+    const { history, message, attachments, systemInstruction } = req.body;
+
+    // --- PREPARE DATA ---
+    const MAX_HISTORY = 10; // Kurangi sedikit lagi biar aman
+    let processedHistory = history || [];
+    
+    // Pastikan history valid (Hapus pesan kosong/error)
+    processedHistory = processedHistory
+        .filter(h => h.text && h.text.trim().length > 0) // Hapus pesan kosong
+        .slice(-MAX_HISTORY); // Ambil N terakhir
+
     const validHistory = processedHistory.map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: [{ text: h.text }]
     }));
 
-    // Persiapkan konten pesan saat ini
+    // Prepare Contents
     let contents = [];
     if (message && typeof message === 'string' && message.trim()) {
       contents.push({ text: message });
@@ -58,76 +66,68 @@ export default async function handler(req, res) {
        return res.status(400).json({ error: "Pesan tidak boleh kosong." });
     }
 
-    // Setup Chat Instance
-    const chat = ai.chats.create({
-      model: 'gemini-2.5-flash',
-      config: {
-        systemInstruction: systemInstruction,
-      },
-      history: validHistory,
-    });
-
-    // --- OPTIMISASI 2: AUTO-RETRY LOGIC ---
-    // Kalau kena Rate Limit (429), kita coba lagi max 3 kali sebelum nyerah.
-    let resultStream;
-    let attempt = 0;
-    const maxRetries = 3;
+    // --- LOGIC ROTASI KUNCI (INSTANT FAILOVER) ---
+    // Shuffle keys
+    const shuffledKeys = availableKeys.sort(() => 0.5 - Math.random());
+    
+    let lastError = null;
     let success = false;
+    let resultStream = null;
 
-    while (attempt < maxRetries && !success) {
+    // Loop mencoba setiap key
+    for (const currentKey of shuffledKeys) {
       try {
-        resultStream = await chat.sendMessageStream({
-          message: contents,
-        });
-        success = true; // Berhasil! Keluar loop.
+          const ai = new GoogleGenAI({ apiKey: currentKey });
+          const chat = ai.chats.create({
+              model: 'gemini-2.5-flash',
+              config: { systemInstruction: systemInstruction },
+              history: validHistory,
+          });
+
+          resultStream = await chat.sendMessageStream({ message: contents });
+          success = true;
+          break; // BERHASIL! Keluar loop.
+
       } catch (err) {
-        // Cek apakah errornya karena Rate Limit (429) atau Server Overload (503)
-        const isRateLimit = err.message?.includes('429') || err.message?.includes('exhausted') || err.message?.includes('503');
-        
-        if (isRateLimit) {
-          attempt++;
-          console.warn(`⚠️ Rate limit hit (Attempt ${attempt}/${maxRetries}). Retrying in ${attempt * 2}s...`);
-          // Tunggu bertahap: 2 detik, 4 detik, 6 detik...
-          await delay(2000 * attempt);
-        } else {
-          // Kalau error lain (misal API Key salah), langsung lempar error, jangan di-retry.
-          throw err;
-        }
+          lastError = err;
+          // Cek error 429 (Limit) atau 503 (Overload)
+          const isRateLimit = err.message?.includes('429') || err.message?.includes('503');
+          
+          if (isRateLimit) {
+              console.warn(`⚠️ Key ...${currentKey.slice(-4)} sibuk. Ganti key lain...`);
+              continue; // LANGSUNG coba key berikutnya tanpa delay (biar gak timeout)
+          } else {
+              // Jika error lain (misal API Key invalid), catat tapi coba key lain aja jaga-jaga
+              console.error(`❌ Key ...${currentKey.slice(-4)} error:`, err.message);
+              continue; 
+          }
       }
     }
 
     if (!success) {
-      throw new Error("Gagal setelah 3x percobaan. Server Google lagi sibuk banget.");
+      const errorMsg = lastError?.message || "Server Google lagi sibuk banget (Semua Key Limit).";
+      console.error("All keys failed. Last error:", lastError);
+      return res.status(503).json({ error: `Gagal: ${errorMsg}` });
     }
 
-    // 6. Response Headers untuk Streaming
+    // --- STREAM RESPONSE ---
     res.writeHead(200, {
       'Content-Type': 'text/plain; charset=utf-8',
       'Transfer-Encoding': 'chunked',
     });
 
-    // 7. Pipe Stream ke Client
     for await (const chunk of resultStream) {
       if (chunk.text) {
         res.write(chunk.text);
       }
     }
-
     res.end();
 
-  } catch (error) {
-    console.error("Backend API Error:", error);
-    
+  } catch (globalError) {
+    console.error("Fatal Handler Error:", globalError);
+    // Pastikan tidak mengirim response double
     if (!res.headersSent) {
-      let msg = "Internal Server Error";
-      if (error.message?.includes('API_KEY')) msg = "Invalid API Key. Cek PEYY_KEY di Vercel.";
-      if (error.message?.includes('429') || error.message?.includes('exhausted')) {
-         msg = "Server lagi sibuk banget (Rate Limit). Coba tunggu 1 menit lagi ya.";
-      }
-      
-      res.status(500).json({ error: msg });
-    } else {
-      res.end();
+        res.status(500).json({ error: "Internal Server Error: " + globalError.message });
     }
   }
 }
