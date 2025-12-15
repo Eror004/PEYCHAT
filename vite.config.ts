@@ -1,22 +1,9 @@
-import { defineConfig, loadEnv } from 'vite';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import type { UserConfig } from 'vite';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }): UserConfig => {
-  // Load env file based on `mode` in the current working directory.
-  // Casting process to any to avoid TS error
-  const env = loadEnv(mode, (process as any).cwd(), '');
-  
-  // Prioritize process.env (Vercel System Env) -> env file (.env)
-  // Vercel menyuntikkan env variables saat build time untuk Vite
-  const apiKey = process.env.API_KEY || env.API_KEY;
-
-  return {
-    plugins: [react()],
-    define: {
-      // Stringify is crucial here. If apiKey is undefined, it becomes "undefined" string or null.
-      'process.env.API_KEY': JSON.stringify(apiKey),
-    },
-  };
+export default defineConfig({
+  plugins: [react()],
+  // Kita tidak perlu lagi define process.env.API_KEY disini
+  // karena frontend sekarang memanggil /api/chat (backend)
 });

@@ -1,59 +1,59 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini on the server side
-// process.env.API_KEY is read automatically from Vercel Environment Variables
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// process.env.API_KEY otomatis ada di Serverless Function Vercel
+const ai = process.env.API_KEY 
+  ? new GoogleGenAI({ apiKey: process.env.API_KEY }) 
+  : null;
 
 export default async function handler(req, res) {
-  // Hanya izinkan method POST
+  // 1. Validasi Method
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // Cek apakah API Key sudah ada di environment variable
-  if (!process.env.API_KEY) {
-    console.error("API_KEY is missing in Vercel environment variables.");
-    return res.status(500).json({ error: "Server misconfiguration: API_KEY missing." });
+  // 2. Validasi API Key Server Side
+  if (!ai) {
+    console.error("API_KEY is missing in Vercel Environment Variables.");
+    return res.status(500).json({ error: "Server Error: API Key belum disetting di Vercel." });
   }
 
   try {
-    // Vercel secara otomatis memparsing JSON body pada standard Node.js functions
     const { history, message, attachments, systemInstruction } = req.body;
 
-    // 1. Prepare content parts
-    // FIX: SDK expects 'message' to be a string OR an array of Parts.
-    // Do NOT wrap it in { parts: [...] }.
-    let contents = message;
+    // 3. Persiapkan Message Content (Text + Images)
+    let contents = [];
     
-    if (attachments && attachments.length > 0) {
-      const parts = [];
-      
-      // Add text part if exists
-      if (message && message.trim()) {
-        parts.push({ text: message });
-      }
-      
-      // Add attachment parts
+    // Jika ada text message
+    if (message && typeof message === 'string' && message.trim()) {
+      contents.push({ text: message });
+    }
+
+    // Jika ada attachments
+    if (attachments && Array.isArray(attachments)) {
       attachments.forEach(att => {
-        parts.push({
+        contents.push({
           inlineData: {
             mimeType: att.mimeType,
             data: att.data
           }
         });
       });
-      
-      contents = parts; // Direct Array of Parts
     }
 
-    // 2. Format History for Gemini SDK
-    // Ensure we don't send empty text parts which can cause API errors
+    // Fallback jika kosong (misal user cuma kirim spasi)
+    if (contents.length === 0) {
+       return res.status(400).json({ error: "Pesan tidak boleh kosong." });
+    }
+
+    // 4. Format History
+    // Mapping dari format UI ke format SDK
     const validHistory = (history || []).map(h => ({
       role: h.role === 'user' ? 'user' : 'model',
       parts: [{ text: h.text }]
     }));
 
-    // 3. Create Chat Session
+    // 5. Create Chat & Stream
     const chat = ai.chats.create({
       model: 'gemini-2.5-flash',
       config: {
@@ -62,20 +62,18 @@ export default async function handler(req, res) {
       history: validHistory,
     });
 
-    // 4. Send Message and get Stream
     const resultStream = await chat.sendMessageStream({
       message: contents,
     });
 
-    // 5. Stream response back to client using Node.js response object
+    // 6. Response Headers untuk Streaming
     res.writeHead(200, {
       'Content-Type': 'text/plain; charset=utf-8',
       'Transfer-Encoding': 'chunked',
     });
 
+    // 7. Pipe Stream ke Client
     for await (const chunk of resultStream) {
-      // FIX: The new SDK returns chunk as GenerateContentResponse.
-      // We access .text property directly.
       if (chunk.text) {
         res.write(chunk.text);
       }
@@ -84,12 +82,17 @@ export default async function handler(req, res) {
     res.end();
 
   } catch (error) {
-    console.error("API Error Details:", error);
-    // If headers haven't been sent, send JSON error. 
-    // If streaming started, we can't send JSON, just end the stream.
+    console.error("Backend API Error:", error);
+    
+    // Jika header belum dikirim, kirim JSON error
     if (!res.headersSent) {
-      res.status(500).json({ error: error.message || "Internal Server Error" });
+      let msg = "Internal Server Error";
+      if (error.message?.includes('API_KEY')) msg = "Invalid API Key configuration.";
+      if (error.message?.includes('429')) msg = "Server lagi sibuk (Rate Limit). Coba lagi.";
+      
+      res.status(500).json({ error: msg });
     } else {
+      // Jika stream sudah jalan, kita tidak bisa kirim JSON, matikan saja
       res.end();
     }
   }
