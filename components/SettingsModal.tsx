@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, User, Volume2, Brain, Mic, Trash2, Key, ExternalLink, Eye, EyeOff } from 'lucide-react';
+import { X, User, Volume2, Brain, Mic, Trash2, Key, ExternalLink, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { Persona, VoicePreset } from '../types';
 
 interface SettingsModalProps {
@@ -31,6 +31,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [localKey, setLocalKey] = useState(userApiKey);
   const [showKey, setShowKey] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
       setLocalKey(userApiKey);
@@ -59,42 +60,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto p-6 space-y-8">
+        <div className="overflow-y-auto p-6 space-y-8 scrollbar-hide">
           
-          {/* API Key Section (New) */}
-          <section className="bg-pey-card/30 p-4 rounded-xl border border-pey-border/50">
-            <h3 className="text-xs font-bold text-pey-accent uppercase tracking-widest mb-2 flex items-center gap-2">
-               <Key size={12} /> Custom API Key (Anti Limit)
-            </h3>
-            <p className="text-[10px] text-pey-muted mb-3 leading-relaxed">
-                Jika server sibuk/limit habis, masukkan API Key Google Gemini kamu sendiri. Gratis kok.
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-pey-accent hover:underline ml-1 inline-flex items-center gap-0.5">
-                    Dapatkan Key <ExternalLink size={8} />
-                </a>
-            </p>
-            <div className="relative flex gap-2">
-                <div className="relative flex-1">
-                    <input 
-                        type={showKey ? "text" : "password"}
-                        value={localKey}
-                        onChange={(e) => setLocalKey(e.target.value)}
-                        onBlur={handleSaveKey}
-                        placeholder="Paste API Key disini..."
-                        className="w-full bg-pey-bg border border-pey-border rounded-lg py-2 pl-3 pr-8 text-xs text-pey-text focus:outline-none focus:border-pey-accent transition-colors"
-                    />
-                    <button 
-                        onClick={() => setShowKey(!showKey)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-pey-muted hover:text-pey-text"
-                    >
-                        {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                </div>
-            </div>
-            <p className="text-[9px] text-pey-muted mt-2 italic">
-                *Key tersimpan aman di browser kamu (LocalStorage).
-            </p>
-          </section>
-
           {/* Persona Selection */}
           <section>
             <h3 className="text-xs font-bold text-pey-muted uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -164,10 +131,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
              <button
                 type="button"
                 onClick={onReset}
-                className="w-full py-3 px-4 rounded-lg border border-red-500/20 hover:bg-red-500/5 text-red-500 transition-all flex items-center justify-center gap-2 text-sm font-medium hover:tracking-wide duration-300"
+                className="w-full py-3 px-4 rounded-lg border border-red-500/20 hover:bg-red-500/5 text-red-500 transition-all flex items-center justify-center gap-2 text-sm font-medium hover:tracking-wide duration-300 group"
              >
+                <Trash2 size={16} className="group-hover:rotate-12 transition-transform" />
                 <span>Hapus Memori Percakapan</span>
              </button>
+          </section>
+
+          {/* Advanced / Custom API Key Section (Bottom) */}
+          <section className="pt-2 flex flex-col items-center">
+            {!showAdvanced ? (
+                <button 
+                    onClick={() => setShowAdvanced(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold tracking-widest uppercase text-pey-muted hover:text-pey-accent transition-all opacity-60 hover:opacity-100 rounded-full hover:bg-pey-card border border-transparent hover:border-pey-border"
+                >
+                    <Key size={12} />
+                    <span>Custom API Key</span>
+                    <ChevronDown size={12} />
+                </button>
+            ) : (
+                <div className="w-full animate-[fadeIn_0.3s_ease-out]">
+                    <div className="flex justify-center mb-2">
+                        <button 
+                            onClick={() => setShowAdvanced(false)}
+                            className="text-[10px] text-pey-muted hover:text-pey-text flex items-center gap-1 opacity-50 hover:opacity-100"
+                        >
+                            <ChevronUp size={10} /> Tutup
+                        </button>
+                    </div>
+                    <div className="bg-pey-card/30 p-4 rounded-xl border border-pey-border/50 relative overflow-hidden">
+                        {/* Background Decoration */}
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-pey-accent/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+                        <h3 className="text-xs font-bold text-pey-accent uppercase tracking-widest mb-2 flex items-center gap-2 relative z-10">
+                            <Key size={12} /> Anti Limit Mode
+                        </h3>
+                        <p className="text-[10px] text-pey-muted mb-3 leading-relaxed relative z-10">
+                            Bypass antrian server dengan menggunakan API Key Google Gemini pribadi.
+                            <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-pey-accent hover:underline ml-1 inline-flex items-center gap-0.5">
+                                Ambil Key Gratis <ExternalLink size={8} />
+                            </a>
+                        </p>
+                        <div className="relative flex gap-2 z-10">
+                            <div className="relative flex-1">
+                                <input 
+                                    type={showKey ? "text" : "password"}
+                                    value={localKey}
+                                    onChange={(e) => setLocalKey(e.target.value)}
+                                    onBlur={handleSaveKey}
+                                    placeholder="Paste key dari Google AI Studio..."
+                                    className="w-full bg-pey-bg border border-pey-border rounded-lg py-2 pl-3 pr-8 text-xs text-pey-text focus:outline-none focus:border-pey-accent transition-colors shadow-inner"
+                                />
+                                <button 
+                                    onClick={() => setShowKey(!showKey)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-pey-muted hover:text-pey-text p-1"
+                                >
+                                    {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
           </section>
 
         </div>
