@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles, Flame, Plus } from 'lucide-react';
+import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles, Flame, Plus, Square } from 'lucide-react';
 import { Attachment } from '../types';
 
 interface UserInputFormProps {
   onSendMessage: (text: string, attachments?: Attachment[], isImageGen?: boolean) => void;
+  onStop: () => void; // Prop baru untuk stop generation
   isLoading: boolean;
 }
 
-export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isLoading }) => {
+export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onStop, isLoading }) => {
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [isListening, setIsListening] = useState(false);
@@ -156,7 +157,13 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     
-    // Logic Tombol Kanan: Jika sedang listening, stop dulu.
+    // Logic: Jika sedang loading, tombol ini berfungsi sebagai STOP
+    if (isLoading && !isListening) {
+        onStop();
+        return;
+    }
+    
+    // Logic: Jika sedang listening, stop dulu.
     if (isListening) {
         toggleListening();
         return;
@@ -180,7 +187,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
   };
 
   // Determine Right Button Icon
-  const canSend = (input.trim().length > 0 || attachment !== null) && !isLoading;
+  const canSend = (input.trim().length > 0 || attachment !== null);
   
   return (
     <div className="w-full max-w-4xl mx-auto p-4 shrink-0">
@@ -306,31 +313,32 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           }
           rows={1}
           className="flex-1 bg-transparent text-pey-text placeholder-pey-muted/50 px-1 py-3 focus:outline-none resize-none max-h-32 min-h-[46px] font-sans font-medium text-base leading-relaxed"
-          disabled={isLoading}
+          disabled={isLoading && !isListening} // Disable typing if loading, but allow typing if just voice listening
         />
 
-        {/* RIGHT: Contextual Action Button (Mic / Send) */}
+        {/* RIGHT: Contextual Action Button (Mic / Send / Stop) */}
         <button
           type="submit"
-          disabled={isLoading && !isListening}
           className={`w-[46px] h-[46px] rounded-[20px] transition-all duration-300 flex items-center justify-center shrink-0 shadow-lg ${
-             canSend
-              ? isImageMode 
-                ? 'bg-gradient-to-tr from-purple-500 to-pink-500 text-white hover:scale-105'
-                : 'bg-pey-text text-pey-bg hover:bg-pey-accent hover:scale-105'
-              : isListening
-                ? 'bg-red-500 text-white animate-pulse'
-                : 'bg-transparent text-pey-muted hover:text-pey-text hover:bg-pey-text/5'
+             isLoading && !isListening
+                ? 'bg-red-500 text-white hover:bg-red-600 hover:scale-105' // STOP BUTTON STYLE
+                : canSend
+                    ? isImageMode 
+                        ? 'bg-gradient-to-tr from-purple-500 to-pink-500 text-white hover:scale-105'
+                        : 'bg-pey-text text-pey-bg hover:bg-pey-accent hover:scale-105'
+                    : isListening
+                        ? 'bg-red-500 text-white animate-pulse'
+                        : 'bg-transparent text-pey-muted hover:text-pey-text hover:bg-pey-text/5'
           }`}
-          title={canSend ? "Kirim" : isListening ? "Stop" : "Bicara"}
+          title={isLoading && !isListening ? "Stop Bacot" : canSend ? "Kirim" : isListening ? "Stop Listening" : "Bicara"}
         >
           {isLoading && !isListening ? (
-            <div className="w-5 h-5 border-2 border-pey-muted border-t-transparent rounded-full animate-spin" />
+             <Square size={20} fill="currentColor" /> // STOP ICON
           ) : (
             canSend ? (
                isImageMode ? <Sparkles size={20} fill="currentColor" /> : <Send size={20} className="ml-0.5" fill="currentColor" />
             ) : isListening ? (
-               <div className="w-2.5 h-2.5 bg-white rounded-[2px] animate-pulse" /> // Stop Icon mimic
+               <div className="w-2.5 h-2.5 bg-white rounded-[2px] animate-pulse" /> // Stop Icon mimic for mic
             ) : (
                <Mic size={22} />
             )

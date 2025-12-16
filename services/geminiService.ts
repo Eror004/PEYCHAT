@@ -6,7 +6,8 @@ export const streamChatResponse = async (
   attachments: Attachment[] | undefined,
   systemInstruction: string,
   onChunk: (chunkText: string) => void,
-  customApiKey?: string
+  customApiKey?: string,
+  signal?: AbortSignal // Tambahkan parameter signal
 ): Promise<void> => {
   try {
     const response = await fetch('/api/chat', {
@@ -22,6 +23,7 @@ export const streamChatResponse = async (
         systemInstruction: systemInstruction,
         customApiKey: customApiKey // Kirim custom key jika ada
       }),
+      signal: signal // Pasang signal ke fetch
     });
 
     if (!response.ok) {
@@ -60,6 +62,10 @@ export const streamChatResponse = async (
     }
 
   } catch (error: any) {
+    if (error.name === 'AbortError') {
+        console.log('Stream dihentikan oleh user (Stop Bacot).');
+        return; // Jangan lempar error jika di-abort sengaja
+    }
     console.error("Chat Service Error:", error);
     // Lempar error asli agar user tau apa yang salah (misal: API Key kurang)
     throw new Error(error.message || "Gagal menghubungkan ke PEYCHAT brain.");

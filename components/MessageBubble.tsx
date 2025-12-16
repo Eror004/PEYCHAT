@@ -1,40 +1,69 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { MessageObject, Role, VoicePreset } from '../types';
-import { Bot, User, Copy, Check, Volume2, StopCircle, Loader2 } from 'lucide-react';
+import { Bot, User, Copy, Check, Volume2, StopCircle, Loader2, Terminal } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: MessageObject;
   voicePreset?: VoicePreset; // Pass the selected voice config
 }
 
-// Utility to decode raw PCM from Gemini (Little Endian 16-bit usually, but handled by decodeAudioData if WAV, 
-// BUT gemini often sends raw PCM. We will try decoding raw first.)
+// Utility to decode raw PCM from Gemini
 const decodeAudio = async (base64Data: string): Promise<AudioBuffer> => {
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
-    
-    // Decode Base64 to ArrayBuffer
     const binaryString = atob(base64Data);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
         bytes[i] = binaryString.charCodeAt(i);
     }
-    
-    // Konversi PCM 16-bit ke AudioBuffer (Float32)
-    // Gemini Output: 24kHz, 1 channel, PCM 16-bit usually.
-    // Jika formatnya raw PCM tanpa header:
     const dataInt16 = new Int16Array(bytes.buffer);
     const frameCount = dataInt16.length;
     const audioBuffer = audioContext.createBuffer(1, frameCount, 24000);
     const channelData = audioBuffer.getChannelData(0);
-    
     for (let i = 0; i < frameCount; i++) {
-        // Normalize 16-bit integer (-32768 to 32767) to float (-1.0 to 1.0)
         channelData[i] = dataInt16[i] / 32768.0;
     }
-    
     return audioBuffer;
+};
+
+// Component khusus untuk Code Block
+const CodeBlock = ({ language, children }: { language: string, children: React.ReactNode }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopyCode = () => {
+        const textToCopy = typeof children === 'string' ? children : String(children);
+        navigator.clipboard.writeText(textToCopy);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="my-3 rounded-xl overflow-hidden border border-pey-border/60 bg-[#0d0d0d] shadow-lg">
+            {/* Code Header */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#1a1a1a] border-b border-pey-border/30">
+                <div className="flex items-center gap-2">
+                    <Terminal size={12} className="text-pey-muted" />
+                    <span className="text-[10px] font-mono text-pey-muted uppercase tracking-wider">
+                        {language || 'CODE'}
+                    </span>
+                </div>
+                <button 
+                    onClick={handleCopyCode} 
+                    className="flex items-center gap-1.5 text-[10px] text-pey-muted hover:text-pey-accent transition-colors"
+                >
+                    {copied ? <Check size={10} /> : <Copy size={10} />}
+                    {copied ? 'Copied' : 'Copy'}
+                </button>
+            </div>
+            {/* Code Body */}
+            <div className="p-3 overflow-x-auto scrollbar-hide">
+                <code className="font-mono text-sm text-[#e0e0e0] whitespace-pre">
+                    {children}
+                </code>
+            </div>
+        </div>
+    );
 };
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePreset }) => {
@@ -52,7 +81,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
 
   const handleSpeak = async () => {
     if (speaking && audioSource) {
-        // Stop current audio
         try {
             audioSource.stop();
         } catch(e) {}
@@ -65,13 +93,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
 
     try {
         setLoadingAudio(true);
-        
-        // Panggil endpoint TTS Server
         const response = await fetch('/api/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                text: message.text.slice(0, 400), // Limit text untuk demo performance
+                text: message.text.slice(0, 400),
                 voiceName: voicePreset?.geminiId || 'Fenrir'
             })
         });
@@ -81,18 +107,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
         const data = await response.json();
         if (data.audio) {
             const audioBuffer = await decodeAudio(data.audio);
-            
-            // Play Audio
             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
             const source = audioContext.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(audioContext.destination);
-            
             source.onended = () => {
                 setSpeaking(false);
                 setAudioSource(null);
             };
-
             source.start(0);
             setAudioSource(source);
             setSpeaking(true);
@@ -112,7 +134,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
       }`}
     >
       <div
-        className={`flex flex-col gap-1 max-w-[90%] md:max-w-[80%] ${
+        className={`flex flex-col gap-1 max-w-[95%] sm:max-w-[85%] md:max-w-[80%] ${
             isUser ? 'items-end' : 'items-start'
         }`}
       >
@@ -130,7 +152,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
             </div>
 
             {/* Content Bubble */}
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 w-full">
                 
             {/* Render Attachments if any */}
             {message.attachments && message.attachments.length > 0 && (
@@ -157,10 +179,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
             {/* Text Bubble */}
             {(message.text || message.isStreaming) && (
                 <div
-                    className={`flex flex-col relative px-6 py-4 shadow-sm text-sm md:text-base leading-relaxed ${
+                    className={`flex flex-col relative px-5 py-3.5 md:px-6 md:py-4 shadow-sm text-sm md:text-base leading-relaxed overflow-hidden ${
                     isUser
-                        ? 'bg-pey-card text-pey-text rounded-3xl rounded-tr-md border border-pey-border'
-                        : 'bg-pey-card text-pey-text rounded-3xl rounded-tl-md border border-pey-border'
+                        ? 'bg-pey-card text-pey-text rounded-3xl rounded-tr-sm border border-pey-border'
+                        : 'bg-pey-card text-pey-text rounded-3xl rounded-tl-sm border border-pey-border'
                     }`}
                 >
                     {/* Header Name for Bot */}
@@ -175,10 +197,32 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
                     ) : (
                     <div className="prose prose-sm md:prose-base max-w-none break-words
                         prose-p:text-pey-text prose-headings:text-pey-text prose-strong:text-pey-accent prose-strong:font-bold
-                        prose-pre:bg-pey-bg prose-pre:text-pey-text prose-pre:border prose-pre:border-pey-border prose-pre:rounded-xl
-                        prose-code:text-pey-secondary prose-code:bg-pey-bg prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
+                        prose-pre:bg-transparent prose-pre:p-0 prose-pre:m-0 prose-pre:border-none
+                        prose-code:text-pey-secondary prose-code:bg-pey-bg/50 prose-code:px-1 prose-code:rounded prose-code:before:content-none prose-code:after:content-none
                         prose-a:text-pey-accent prose-a:underline">
-                        <ReactMarkdown>{message.text}</ReactMarkdown>
+                        <ReactMarkdown
+                            components={{
+                                code(props) {
+                                    const {children, className, node, ...rest} = props
+                                    const match = /language-(\w+)/.exec(className || '')
+                                    // Jika code block (ada language atau multi-line), render component CodeBlock custom
+                                    // Jika inline code (tidak ada language dan satu baris), render default
+                                    const isCodeBlock = match || (String(children).includes('\n'));
+                                    
+                                    return isCodeBlock ? (
+                                        <CodeBlock language={match ? match[1] : ''}>
+                                            {String(children).replace(/\n$/, '')}
+                                        </CodeBlock>
+                                    ) : (
+                                        <code {...rest} className={className}>
+                                            {children}
+                                        </code>
+                                    )
+                                }
+                            }}
+                        >
+                            {message.text}
+                        </ReactMarkdown>
                     </div>
                     )}
                 </div>

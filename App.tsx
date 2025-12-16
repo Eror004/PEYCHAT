@@ -187,6 +187,9 @@ const App: React.FC = () => {
   
   const personaMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Ref untuk AbortController (Stop Generation)
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const currentPersona = PERSONAS.find(p => p.id === currentPersonaId) || PERSONAS[0];
   const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[0];
@@ -248,6 +251,27 @@ const App: React.FC = () => {
       setCurrentTheme(themes[nextIndex]);
   };
 
+  // STOP GENERATION FUNCTION
+  const handleStopGeneration = () => {
+      if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+          setIsLoading(false);
+          
+          // Set pesan terakhir agar tidak loading lagi
+          setConversationHistory((prev) => {
+              const lastMsg = prev[prev.length - 1];
+              if (lastMsg && lastMsg.role === Role.MODEL && lastMsg.isStreaming) {
+                  return [
+                      ...prev.slice(0, -1),
+                      { ...lastMsg, isStreaming: false, text: lastMsg.text + " [DIHENTIKAN USER]" }
+                  ];
+              }
+              return prev;
+          });
+      }
+  };
+
   const handleSendMessage = async (text: string, attachments?: Attachment[], isImageGen?: boolean) => {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || isLoading) return;
 
@@ -272,6 +296,10 @@ const App: React.FC = () => {
 
     setConversationHistory((prev) => [...prev, userMsg, placeholderBotMsg]);
     setIsLoading(true);
+
+    // Create new AbortController
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     try {
       if (isImageGen) {
@@ -309,7 +337,8 @@ const App: React.FC = () => {
                 )
               );
             },
-            userApiKey 
+            userApiKey,
+            abortController.signal // Pass signal here
           );
           setConversationHistory((prev) => 
             prev.map((msg) => 
@@ -318,23 +347,27 @@ const App: React.FC = () => {
           );
       }
     } catch (error: any) {
-      console.error(error);
-      const errorMessage = error.message || "Unknown error";
-      setConversationHistory((prev) => 
-        prev.map((msg) => 
-            msg.id === botMsgId 
-            ? { 
-                ...msg, 
-                text: isImageGen 
-                    ? `Gagal nggambar nih: ${errorMessage}` 
-                    : msg.text + `\n\n*[SYSTEM ALERT: ${errorMessage}]*`, 
-                isStreaming: false 
-              } 
-            : msg
-        )
-      );
+      // Jika error karena abort, jangan tampilkan error message
+      if (error.name !== 'AbortError') {
+          console.error(error);
+          const errorMessage = error.message || "Unknown error";
+          setConversationHistory((prev) => 
+            prev.map((msg) => 
+                msg.id === botMsgId 
+                ? { 
+                    ...msg, 
+                    text: isImageGen 
+                        ? `Gagal nggambar nih: ${errorMessage}` 
+                        : msg.text + `\n\n*[SYSTEM ALERT: ${errorMessage}]*`, 
+                    isStreaming: false 
+                  } 
+                : msg
+            )
+          );
+      }
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -491,7 +524,11 @@ const App: React.FC = () => {
             <div ref={messagesEndRef} className="h-4" />
           </main>
 
-          <UserInputForm onSendMessage={handleSendMessage} isLoading={isLoading} />
+          <UserInputForm 
+            onSendMessage={handleSendMessage} 
+            onStop={handleStopGeneration} 
+            isLoading={isLoading} 
+          />
       </div>
     </div>
   );
