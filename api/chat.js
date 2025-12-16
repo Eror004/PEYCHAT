@@ -7,30 +7,45 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 2. KUMPULKAN SEMUA API KEY (THE AVENGERS - SQUAD 7)
-    const rawKeys = [
-      process.env.PEYY_KEY,
-      process.env.PEYY_KEY_2,
-      process.env.PEYY_KEY_3,
-      process.env.PEYY_KEY_4,
-      process.env.PEYY_KEY_5,
-      process.env.PEYY_KEY_6,
-      process.env.PEYY_KEY_7,
-      process.env.API_KEY
-    ];
+    const { history, message, attachments, systemInstruction, customApiKey } = req.body;
 
-    // Filter key yang kosong
-    const availableKeys = rawKeys.filter(k => k && k.trim().length > 0);
+    // 2. TENTUKAN KEY YANG AKAN DIPAKAI
+    // Jika user memberikan key sendiri (customApiKey), kita pakai itu saja.
+    // Jika tidak, kita pakai "The Avengers" (Key Rotation Server).
+    
+    let targetKeys = [];
 
-    if (availableKeys.length === 0) {
-      console.error("CRITICAL ERROR: No API Keys found in Environment Variables.");
-      return res.status(500).json({ 
-        error: "Konfigurasi Server Salah: Tidak ada API Key yang ditemukan. Cek Vercel Settings." 
-      });
+    if (customApiKey && customApiKey.trim().length > 0) {
+        targetKeys = [customApiKey.trim()]; // Priority 1: User Key
+    } else {
+        // STRATEGI MULTI-AKUN (THE AVENGERS)
+        // Mendukung PEYY_KEY, PEYY_KEY_1 s.d PEYY_KEY_10, dan API_KEY
+        const rawKeys = [
+          process.env.PEYY_KEY,
+          process.env.PEYY_KEY_1,
+          process.env.PEYY_KEY_2,
+          process.env.PEYY_KEY_3,
+          process.env.PEYY_KEY_4,
+          process.env.PEYY_KEY_5,
+          process.env.PEYY_KEY_6,
+          process.env.PEYY_KEY_7,
+          process.env.PEYY_KEY_8,
+          process.env.PEYY_KEY_9,
+          process.env.PEYY_KEY_10,
+          process.env.API_KEY
+        ];
+        // Filter key yang kosong (undefined atau string kosong)
+        targetKeys = rawKeys.filter(k => k && k.trim().length > 0);
+        
+        // Shuffle agar beban terbagi rata ke semua akun
+        targetKeys = targetKeys.sort(() => 0.5 - Math.random());
     }
 
-    // 3. Parse Body & Validasi
-    const { history, message, attachments, systemInstruction } = req.body;
+    if (targetKeys.length === 0) {
+      return res.status(500).json({ 
+        error: "Server Error: No API Keys available. Please provide your own Key in Settings." 
+      });
+    }
 
     // --- PREPARE DATA ---
     const MAX_HISTORY = 10;
@@ -76,15 +91,13 @@ export default async function handler(req, res) {
        return res.status(400).json({ error: "Pesan tidak boleh kosong." });
     }
 
-    // --- LOGIC ROTASI KUNCI (INSTANT FAILOVER) ---
-    const shuffledKeys = availableKeys.sort(() => 0.5 - Math.random());
-    
+    // --- LOGIC EKSEKUSI ---
     let lastError = null;
     let success = false;
     let resultStream = null;
 
-    // Loop mencoba setiap key
-    for (const currentKey of shuffledKeys) {
+    // Loop mencoba setiap key yang tersedia
+    for (const currentKey of targetKeys) {
       try {
           const ai = new GoogleGenAI({ apiKey: currentKey });
           
@@ -108,17 +121,23 @@ export default async function handler(req, res) {
 
       } catch (err) {
           lastError = err;
-          // Cek error 429 (Limit) atau 503 (Overload)
-          const isRateLimit = err.message?.includes('429') || err.message?.includes('503');
           
+          // Jika menggunakan Custom Key, jangan coba key lain (karena cuma ada 1).
+          // Langsung throw error agar user tau key mereka salah/habis.
+          if (customApiKey) {
+             throw new Error(`Custom Key Error: ${err.message}`);
+          }
+
+          // Jika pakai Server Key, lakukan rotasi bila kena Rate Limit
+          const isRateLimit = err.message?.includes('429') || err.message?.includes('503');
           if (isRateLimit) {
-              console.warn(`⚠️ Key ...${currentKey.slice(-4)} sibuk. Ganti key lain...`);
-              continue; // LANGSUNG coba key berikutnya tanpa delay
+              console.warn(`⚠️ Key ...${currentKey.slice(-4)} sibuk/limit. Ganti ke akun berikutnya...`);
+              continue; 
           } else {
               console.error(`❌ Key ...${currentKey.slice(-4)} error:`, err.message);
-              // Jika error karena 'INVALID_ARGUMENT' (biasanya format gambar salah), jangan retry, langsung stop
+              // Jika error validasi (format salah), stop.
               if (err.message?.includes('INVALID_ARGUMENT') || err.message?.includes('400')) {
-                   return res.status(400).json({ error: "Format gambar tidak didukung atau rusak." });
+                   return res.status(400).json({ error: "Format request salah (400)." });
               }
               continue; 
           }
@@ -147,7 +166,7 @@ export default async function handler(req, res) {
   } catch (globalError) {
     console.error("Fatal Handler Error:", globalError);
     if (!res.headersSent) {
-        res.status(500).json({ error: "Internal Server Error: " + globalError.message });
+        res.status(500).json({ error: "Error: " + globalError.message });
     }
   }
 }

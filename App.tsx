@@ -173,9 +173,7 @@ const SUGGESTIONS: Record<string, string[]> = {
 const generateId = () => `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const App: React.FC = () => {
-  // --- CHANGE: Always initialize with empty array ---
   const [conversationHistory, setConversationHistory] = useState<MessageObject[]>([]);
-
   const [isLoading, setIsLoading] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('toxic');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -183,12 +181,20 @@ const App: React.FC = () => {
   const [currentVoiceId, setCurrentVoiceId] = useState<string>('charon');
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
   
+  // State untuk menyimpan API Key Custom User
+  const [userApiKey, setUserApiKey] = useState<string>('');
+  
   const personaMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const currentPersona = PERSONAS.find(p => p.id === currentPersonaId) || PERSONAS[0];
   const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[0];
   const currentSuggestions = SUGGESTIONS[currentPersonaId] || SUGGESTIONS['asisten'];
+
+  useEffect(() => {
+      const storedKey = localStorage.getItem('user_gemini_key');
+      if (storedKey) setUserApiKey(storedKey);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -199,8 +205,6 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  // --- CHANGE: Removed localStorage useEffect ---
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -220,6 +224,11 @@ const App: React.FC = () => {
     root.style.setProperty('--color-border', theme.border);
   }, [currentTheme]);
 
+  const handleUpdateApiKey = (key: string) => {
+      setUserApiKey(key);
+      localStorage.setItem('user_gemini_key', key);
+  };
+
   const handleClearChat = (force: boolean = false) => {
     if (!force) {
         if (!window.confirm("Yakin mau hapus semua chat?")) {
@@ -227,7 +236,6 @@ const App: React.FC = () => {
         }
     }
     setConversationHistory([]);
-    // --- CHANGE: Removed localStorage.removeItem ---
     setIsLoading(false); 
     setIsSettingsOpen(false); 
   };
@@ -266,7 +274,8 @@ const App: React.FC = () => {
 
     try {
       if (isImageGen) {
-          const base64Image = await generateImage(text);
+          // Pass userApiKey (if exists) to image generation
+          const base64Image = await generateImage(text, userApiKey);
           setConversationHistory((prev) => 
             prev.map((msg) => 
                 msg.id === botMsgId 
@@ -285,6 +294,7 @@ const App: React.FC = () => {
           );
       } else {
           let gatheredText = '';
+          // Pass userApiKey (if exists) to chat stream
           await streamChatResponse(
             [...conversationHistory, userMsg], 
             text, 
@@ -297,7 +307,8 @@ const App: React.FC = () => {
                   msg.id === botMsgId ? { ...msg, text: gatheredText } : msg
                 )
               );
-            }
+            },
+            userApiKey 
           );
           setConversationHistory((prev) => 
             prev.map((msg) => 
@@ -338,7 +349,9 @@ const App: React.FC = () => {
         voicePresets={VOICE_PRESETS}
         currentVoiceId={currentVoiceId}
         onSelectVoice={setCurrentVoiceId}
-        onReset={() => handleClearChat(true)} 
+        onReset={() => handleClearChat(true)}
+        userApiKey={userApiKey}
+        onUpdateApiKey={handleUpdateApiKey}
       />
 
       <div className="relative z-10 flex flex-col h-full">

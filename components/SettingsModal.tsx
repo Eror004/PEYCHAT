@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, User, Volume2, Brain, Mic, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, User, Volume2, Brain, Mic, Trash2, Key, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { Persona, VoicePreset } from '../types';
 
 interface SettingsModalProps {
@@ -12,6 +12,8 @@ interface SettingsModalProps {
   currentVoiceId: string;
   onSelectVoice: (id: string) => void;
   onReset: () => void;
+  userApiKey: string;
+  onUpdateApiKey: (key: string) => void;
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -24,7 +26,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   currentVoiceId,
   onSelectVoice,
   onReset,
+  userApiKey,
+  onUpdateApiKey
 }) => {
+  const [localKey, setLocalKey] = useState(userApiKey);
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+      setLocalKey(userApiKey);
+  }, [userApiKey]);
+
+  const handleSaveKey = () => {
+      onUpdateApiKey(localKey);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -46,6 +61,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Content */}
         <div className="overflow-y-auto p-6 space-y-8">
           
+          {/* API Key Section (New) */}
+          <section className="bg-pey-card/30 p-4 rounded-xl border border-pey-border/50">
+            <h3 className="text-xs font-bold text-pey-accent uppercase tracking-widest mb-2 flex items-center gap-2">
+               <Key size={12} /> Custom API Key (Anti Limit)
+            </h3>
+            <p className="text-[10px] text-pey-muted mb-3 leading-relaxed">
+                Jika server sibuk/limit habis, masukkan API Key Google Gemini kamu sendiri. Gratis kok.
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-pey-accent hover:underline ml-1 inline-flex items-center gap-0.5">
+                    Dapatkan Key <ExternalLink size={8} />
+                </a>
+            </p>
+            <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                    <input 
+                        type={showKey ? "text" : "password"}
+                        value={localKey}
+                        onChange={(e) => setLocalKey(e.target.value)}
+                        onBlur={handleSaveKey}
+                        placeholder="Paste API Key disini..."
+                        className="w-full bg-pey-bg border border-pey-border rounded-lg py-2 pl-3 pr-8 text-xs text-pey-text focus:outline-none focus:border-pey-accent transition-colors"
+                    />
+                    <button 
+                        onClick={() => setShowKey(!showKey)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-pey-muted hover:text-pey-text"
+                    >
+                        {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
+                </div>
+            </div>
+            <p className="text-[9px] text-pey-muted mt-2 italic">
+                *Key tersimpan aman di browser kamu (LocalStorage).
+            </p>
+          </section>
+
           {/* Persona Selection */}
           <section>
             <h3 className="text-xs font-bold text-pey-muted uppercase tracking-widest mb-4 flex items-center gap-2">

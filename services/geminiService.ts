@@ -5,7 +5,8 @@ export const streamChatResponse = async (
   userMessage: string,
   attachments: Attachment[] | undefined,
   systemInstruction: string,
-  onChunk: (chunkText: string) => void
+  onChunk: (chunkText: string) => void,
+  customApiKey?: string
 ): Promise<void> => {
   try {
     const response = await fetch('/api/chat', {
@@ -18,7 +19,8 @@ export const streamChatResponse = async (
         history: currentHistory.filter(msg => !msg.isStreaming && msg.text && msg.text.trim().length > 0),
         message: userMessage,
         attachments: attachments,
-        systemInstruction: systemInstruction
+        systemInstruction: systemInstruction,
+        customApiKey: customApiKey // Kirim custom key jika ada
       }),
     });
 
@@ -64,12 +66,12 @@ export const streamChatResponse = async (
   }
 };
 
-export const generateImage = async (prompt: string): Promise<string> => {
+export const generateImage = async (prompt: string, customApiKey?: string): Promise<string> => {
     try {
         const response = await fetch('/api/image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt }),
+            body: JSON.stringify({ prompt, customApiKey }), // Kirim custom key jika ada
         });
 
         if (!response.ok) {

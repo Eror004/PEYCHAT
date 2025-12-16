@@ -6,41 +6,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    // --- 1. KEY ROTATION SYSTEM (Sama seperti chat.js) ---
-    const rawKeys = [
-      process.env.PEYY_KEY,
-      process.env.PEYY_KEY_2,
-      process.env.PEYY_KEY_3,
-      process.env.PEYY_KEY_4,
-      process.env.PEYY_KEY_5,
-      process.env.PEYY_KEY_6,
-      process.env.PEYY_KEY_7,
-      process.env.API_KEY
-    ];
+    const { text, voiceName, customApiKey } = req.body;
 
-    const availableKeys = rawKeys.filter(k => k && k.trim().length > 0);
-
-    if (availableKeys.length === 0) {
-      return res.status(500).json({ error: "Server Misconfig: No API Keys." });
+    let targetKeys = [];
+    if (customApiKey && customApiKey.trim().length > 0) {
+        targetKeys = [customApiKey.trim()];
+    } else {
+        const rawKeys = [
+            process.env.PEYY_KEY,
+            process.env.PEYY_KEY_1,
+            process.env.PEYY_KEY_2,
+            process.env.PEYY_KEY_3,
+            process.env.PEYY_KEY_4,
+            process.env.PEYY_KEY_5,
+            process.env.PEYY_KEY_6,
+            process.env.PEYY_KEY_7,
+            process.env.PEYY_KEY_8,
+            process.env.PEYY_KEY_9,
+            process.env.PEYY_KEY_10,
+            process.env.API_KEY
+        ];
+        targetKeys = rawKeys.filter(k => k && k.trim().length > 0).sort(() => 0.5 - Math.random());
     }
 
-    const { text, voiceName } = req.body;
+    if (targetKeys.length === 0) {
+      return res.status(500).json({ error: "No API Keys available." });
+    }
 
     if (!text) {
         return res.status(400).json({ error: "Text is required" });
     }
 
     // --- 2. EXECUTE TTS ---
-    const shuffledKeys = availableKeys.sort(() => 0.5 - Math.random());
     let success = false;
     let audioData = null;
     let lastError = null;
 
-    for (const currentKey of shuffledKeys) {
+    for (const currentKey of targetKeys) {
         try {
             const ai = new GoogleGenAI({ apiKey: currentKey });
             
-            // Menggunakan model khusus TTS
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
                 contents: {
@@ -50,7 +55,6 @@ export default async function handler(req, res) {
                     responseModalities: ['AUDIO'],
                     speechConfig: {
                         voiceConfig: {
-                            // ENFORCE CHARON AS DEFAULT (Suara Utama Deep/Mystery)
                             prebuiltVoiceConfig: { 
                                 voiceName: voiceName || 'Charon' 
                             },
@@ -59,7 +63,6 @@ export default async function handler(req, res) {
                 },
             });
 
-            // Ambil binary audio dari response
             const candidate = response.candidates?.[0];
             const part = candidate?.content?.parts?.[0];
             
@@ -73,8 +76,7 @@ export default async function handler(req, res) {
 
         } catch (err) {
             lastError = err;
-            console.warn(`TTS Key Error (${currentKey.slice(-4)}):`, err.message);
-            // Lanjut ke key berikutnya jika error
+            if (customApiKey) throw new Error(err.message); // Fail fast for custom key
             continue;
         }
     }
@@ -83,7 +85,6 @@ export default async function handler(req, res) {
         return res.status(503).json({ error: "Gagal generate suara: " + (lastError?.message || "Unknown error") });
     }
 
-    // Return base64 string directly
     res.status(200).json({ audio: audioData });
 
   } catch (globalError) {
