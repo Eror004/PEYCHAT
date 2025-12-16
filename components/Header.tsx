@@ -14,14 +14,15 @@ export const Header: React.FC<HeaderProps> = ({ onReset, currentTheme, onSwitchT
     // Changed from sticky to relative/block since it's now outside the scrollable area
     <header className="w-full backdrop-blur-xl bg-pey-bg/80 border-b border-pey-border transition-colors duration-500 supports-[backdrop-filter]:bg-pey-bg/60 shrink-0">
       <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3 group cursor-default relative">
+        <div className="flex items-center gap-3 group cursor-default relative overflow-hidden">
           
-          <h1 className="font-display font-bold text-2xl tracking-tighter text-pey-text hidden sm:block">
+          {/* Desktop Title - Larger & Static (No Animation) */}
+          <h1 className="font-display font-bold text-4xl tracking-tighter text-pey-text hidden sm:block">
             PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
           </h1>
           
-          {/* Mobile Title (Compact) */}
-          <h1 className="font-display font-bold text-xl tracking-tighter text-pey-text sm:hidden">
+          {/* Mobile Title - Larger & Static (No Animation) */}
+          <h1 className="font-display font-bold text-2xl tracking-tighter text-pey-text sm:hidden">
             PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
           </h1>
         </div>
