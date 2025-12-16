@@ -136,21 +136,21 @@ const THEMES: Record<ThemeName, ThemeColors> = {
 const SUGGESTIONS: Record<string, string[]> = {
     'asisten': [
         "Roast selera musik gue",
-        "Kenapa gue masih jomblo?",
+        "Roast Foto Gue 💀",
         "Fakta random yang gelap",
         "Ide bisnis modal nekat",
         "Saran hidup brutal"
     ],
     'bestie': [
         "Spill tea hari ini",
-        "Tebak zodiak gue dong",
+        "Roast OOTD Gue 🔥",
         "Rekomendasi lagu galau",
         "Ide outfit buat nge-date",
         "Cara move on jalur ekspres"
     ],
     'pacar': [
         "Aku kangen kamu",
-        "Gombalin aku dong",
+        "Nilai foto aku dong 📸",
         "Besok kita jalan kemana?",
         "Bacain dongeng tidur",
         "Aku lagi sedih nih..."

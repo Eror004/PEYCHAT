@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles } from 'lucide-react';
+import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles, Flame, Plus } from 'lucide-react';
 import { Attachment } from '../types';
 
 interface UserInputFormProps {
@@ -12,10 +12,24 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [isImageMode, setIsImageMode] = useState(false);
+  const [showTools, setShowTools] = useState(false); // State untuk menu tools
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const roastInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Close tools menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (formRef.current && !formRef.current.contains(event.target as Node)) {
+            setShowTools(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Initialize Speech Recognition
   useEffect(() => {
@@ -24,7 +38,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = 'id-ID'; // Set Bahasa Indonesia
+        recognition.lang = 'id-ID'; 
 
         recognition.onresult = (event: any) => {
             let finalTranscript = '';
@@ -71,29 +85,19 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
 
   const toggleImageMode = () => {
       setIsImageMode(!isImageMode);
-      // Reset attachment jika masuk mode image gen (karena endpoint image gen biasanya prompt only di sini)
       if (!isImageMode) {
           setAttachment(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
       }
+      setShowTools(false); // Auto close menu
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Disable file upload in image mode
-    if (isImageMode) {
-        alert("Matikan mode lukis dulu kalau mau kirim gambar!");
-        return;
-    }
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // VALIDASI UKURAN FILE: Max 3MB (Vercel Serverless limit body ~4.5MB, Base64 adds 33%)
+  const processFile = (file: File, isRoast: boolean = false) => {
     const MAX_SIZE_MB = 3;
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-      alert(`Waduh, gambarnya kegedean! Maksimal ${MAX_SIZE_MB}MB ya biar server gak bengek.`);
-      // Reset input agar user bisa pilih file lain
+      alert(`Waduh, gambarnya kegedean! Maksimal ${MAX_SIZE_MB}MB ya.`);
       if (fileInputRef.current) fileInputRef.current.value = '';
+      if (roastInputRef.current) roastInputRef.current.value = '';
       return;
     }
 
@@ -112,36 +116,60 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
         previewUrl: URL.createObjectURL(file),
         type
       });
+
+      if (isRoast) {
+          setInput("Roast vibe foto ini! Nilai outfit, background, & estetikanya sesuai persona lo! 💀🔥");
+          setTimeout(() => textareaRef.current?.focus(), 100);
+      }
+      setShowTools(false); // Auto close menu
     };
     reader.readAsDataURL(file);
-    
-    // Reset input so same file can be selected again if needed
-    e.target.value = '';
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isImageMode) {
+        alert("Matikan mode lukis dulu kalau mau kirim gambar!");
+        return;
+    }
+    const file = e.target.files?.[0];
+    if (file) {
+        processFile(file, false);
+        e.target.value = '';
+    }
+  };
+
+  const handleRoastSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isImageMode) setIsImageMode(false);
+    const file = e.target.files?.[0];
+    if (file) {
+        processFile(file, true);
+        e.target.value = '';
+    }
   };
 
   const removeAttachment = () => {
     setAttachment(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+    if (roastInputRef.current) roastInputRef.current.value = '';
   };
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if ((!input.trim() && !attachment) || isLoading) return;
     
-    // Stop recording if active
-    if (isListening && recognitionRef.current) {
-        recognitionRef.current.stop();
-        setIsListening(false);
+    // Logic Tombol Kanan: Jika sedang listening, stop dulu.
+    if (isListening) {
+        toggleListening();
+        return;
     }
+
+    if ((!input.trim() && !attachment) || isLoading) return; // Prevent empty send
 
     onSendMessage(input.trim(), attachment ? [attachment] : undefined, isImageMode);
     setInput('');
     setAttachment(null);
-    if (fileInputRef.current) fileInputRef.current.value = ''; // Reset file input
+    if (fileInputRef.current) fileInputRef.current.value = ''; 
+    if (roastInputRef.current) roastInputRef.current.value = '';
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
-    
-    // Optional: Auto turn off image mode after send? 
-    // setIsImageMode(false); // Let's keep it active for multiple gens
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -151,101 +179,119 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
     }
   };
 
+  // Determine Right Button Icon
+  const canSend = (input.trim().length > 0 || attachment !== null) && !isLoading;
+  
   return (
     <div className="w-full max-w-4xl mx-auto p-4 shrink-0">
-      {/* Preview Area */}
+      
+      {/* Hidden Inputs */}
+      <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" accept="image/*,video/*" />
+      <input type="file" ref={roastInputRef} onChange={handleRoastSelect} className="hidden" accept="image/*" />
+
+      {/* Mode Indicator (Floating) */}
+      {isImageMode && (
+          <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest text-white bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-0.5 rounded-full shadow-lg animate-pulse flex items-center gap-1 z-20">
+              <Sparkles size={10} /> MODE IMAJINASI
+          </div>
+      )}
+
+      {/* Preview Area (Compact) */}
       {attachment && (
-        <div className="mb-2 ml-4 inline-flex relative group animate-[fadeIn_0.3s_ease-out]">
-          <div className="relative rounded-2xl overflow-hidden border border-pey-accent/30 shadow-lg bg-pey-card">
+        <div className="mb-2 ml-10 inline-flex relative group animate-[scaleIn_0.2s_ease-out] origin-bottom-left z-0">
+          <div className="relative h-16 rounded-xl overflow-hidden border border-pey-border/50 shadow-lg bg-black/40 backdrop-blur-md">
             {attachment.type === 'image' ? (
-              <img src={attachment.previewUrl} alt="Preview" className="h-24 w-auto object-cover opacity-90" />
+              <img src={attachment.previewUrl} alt="Preview" className="h-full w-auto object-cover opacity-90" />
             ) : attachment.type === 'video' ? (
-              <div className="h-24 w-32 flex items-center justify-center bg-black/20 text-pey-accent">
-                <FileVideo size={32} />
+              <div className="h-full w-20 flex items-center justify-center text-pey-accent">
+                <FileVideo size={24} />
               </div>
             ) : (
-              <div className="h-24 w-32 flex items-center justify-center bg-pey-card/50 text-pey-text">
-                <span className="text-xs font-mono p-2 text-center break-all">{attachment.mimeType}</span>
+              <div className="h-full px-3 flex items-center justify-center text-pey-text text-xs">
+                 File
               </div>
             )}
-            
             <button 
               onClick={removeAttachment}
-              className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white rounded-full p-1 transition-colors backdrop-blur-sm"
+              className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-red-500 text-white rounded-full p-0.5 transition-colors"
             >
-              <X size={14} />
+              <X size={10} />
             </button>
           </div>
         </div>
-      )}
-
-      {/* Mode Indicator Text */}
-      {isImageMode && (
-          <div className="ml-4 mb-1 text-xs font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 animate-pulse flex items-center gap-1">
-              <Sparkles size={12} /> MODE IMAJINASI (IMAGE GEN) AKTIF
-          </div>
       )}
 
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
-        className={`relative flex items-end gap-2 p-2 bg-pey-card/90 backdrop-blur-2xl border rounded-[2rem] shadow-2xl transition-all duration-300 focus-within:ring-2 ${
-            isImageMode 
-             ? 'border-purple-500/50 ring-purple-500/20 shadow-purple-500/10' 
-             : isListening
-                ? 'border-red-500/50 ring-red-500/20 shadow-red-500/10'
-                : 'border-pey-border focus-within:ring-pey-accent/50 focus-within:border-pey-accent'
+        className={`relative flex items-end gap-2 p-1.5 bg-pey-card/60 backdrop-blur-xl border transition-all duration-300 rounded-[26px] shadow-2xl ${
+            isListening 
+            ? 'border-red-500/30 ring-1 ring-red-500/20' 
+            : isImageMode 
+                ? 'border-purple-500/30 ring-1 ring-purple-500/20'
+                : 'border-pey-border/60 focus-within:border-pey-accent/50 focus-within:ring-1 focus-within:ring-pey-accent/20'
         }`}
       >
-        <div className="pl-3 pb-3 flex gap-1 sm:gap-2">
-            {/* File Upload Button */}
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileSelect} 
-                className="hidden" 
-                accept="image/*"
-            />
-            <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className={`transition-all p-1.5 rounded-full ${isImageMode ? 'opacity-30 cursor-not-allowed' : 'text-pey-muted hover:text-pey-accent hover:rotate-12'}`}
-                title="Add photo"
-                disabled={isLoading || isImageMode}
-            >
-                <Paperclip size={20} strokeWidth={2} />
-            </button>
-
-            {/* Image Gen Mode Button */}
+        
+        {/* LEFT: Toggle Tools Button */}
+        <div className="relative flex items-center justify-center h-[46px] w-[46px] shrink-0">
              <button
                 type="button"
-                onClick={toggleImageMode}
-                className={`transition-all p-1.5 rounded-full ${
-                    isImageMode
-                    ? 'text-white bg-gradient-to-tr from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30 rotate-12'
-                    : 'text-pey-muted hover:text-purple-400 hover:bg-purple-500/10'
-                }`}
-                title={isImageMode ? "Matikan Mode Lukis" : "Mode Imajinasi (Buat Gambar)"}
+                onClick={() => setShowTools(!showTools)}
                 disabled={isLoading}
+                className={`w-9 h-9 flex items-center justify-center rounded-full transition-all duration-300 ${
+                    showTools 
+                    ? 'bg-pey-text text-pey-bg rotate-45' 
+                    : 'text-pey-muted hover:text-pey-text hover:bg-pey-text/10'
+                }`}
             >
-                <Palette size={20} strokeWidth={2} />
+                <Plus size={20} />
             </button>
 
-            {/* Microphone Button */}
-            <button
-                type="button"
-                onClick={toggleListening}
-                className={`transition-all p-1.5 rounded-full ${
-                    isListening 
-                    ? 'text-red-500 animate-pulse bg-red-500/10' 
-                    : 'text-pey-muted hover:text-pey-accent hover:bg-pey-accent/10'
-                }`}
-                title={isListening ? "Stop Listening" : "Speak (Bahasa Indonesia)"}
-                disabled={isLoading}
-            >
-                {isListening ? <MicOff size={20} strokeWidth={2} /> : <Mic size={20} strokeWidth={2} />}
-            </button>
+            {/* FLOATING TOOLS MENU (Pop-up) */}
+            <div className={`absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-1.5 bg-pey-card/90 backdrop-blur-2xl border border-pey-border rounded-full shadow-xl transition-all duration-300 origin-bottom-left z-50 ${
+                showTools 
+                ? 'opacity-100 scale-100 translate-y-0' 
+                : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
+            }`}>
+                 
+                 {/* 1. Upload */}
+                <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`p-2.5 rounded-full transition-all ${isImageMode ? 'opacity-30 cursor-not-allowed' : 'text-pey-text hover:bg-pey-accent hover:text-pey-bg'}`}
+                    title="Upload Media"
+                >
+                    <Paperclip size={18} />
+                </button>
+
+                {/* 2. Roast Mode */}
+                <button
+                    type="button"
+                    onClick={() => roastInputRef.current?.click()}
+                    className={`p-2.5 rounded-full transition-all ${isImageMode ? 'opacity-30 cursor-not-allowed' : 'text-orange-500 hover:bg-orange-500 hover:text-white'}`}
+                    title="Roast My Vibe 🔥"
+                >
+                    <Flame size={18} />
+                </button>
+
+                {/* 3. Image Gen Mode */}
+                <button
+                    type="button"
+                    onClick={toggleImageMode}
+                    className={`p-2.5 rounded-full transition-all ${
+                        isImageMode 
+                        ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/40' 
+                        : 'text-purple-400 hover:bg-purple-500 hover:text-white'
+                    }`}
+                    title="Mode Imajinasi"
+                >
+                    <Palette size={18} />
+                </button>
+            </div>
         </div>
         
+        {/* CENTER: Text Input */}
         <textarea
           ref={textareaRef}
           value={input}
@@ -253,43 +299,45 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
           onKeyDown={handleKeyDown}
           placeholder={
               isImageMode
-              ? "Tuan Pey, tolong gambarin..."
+              ? "Lukis apa hari ini..."
               : isListening 
-                ? "Lagi dengerin kamu..." 
-                : attachment 
-                    ? "Tanya soal gambar ini..." 
-                    : "TANYA TUAN PEY..."
+                ? "Mendengarkan..." 
+                : "Ketik sesuatu..."
           }
           rows={1}
-          className="w-full bg-transparent text-pey-text placeholder-pey-muted px-2 py-3 focus:outline-none resize-none max-h-32 min-h-[50px] font-sans font-medium text-base sm:text-lg"
+          className="flex-1 bg-transparent text-pey-text placeholder-pey-muted/50 px-1 py-3 focus:outline-none resize-none max-h-32 min-h-[46px] font-sans font-medium text-base leading-relaxed"
           disabled={isLoading}
         />
 
+        {/* RIGHT: Contextual Action Button (Mic / Send) */}
         <button
           type="submit"
-          disabled={(!input.trim() && !attachment) || isLoading}
-          className={`w-12 h-12 rounded-full mb-0.5 mr-0.5 transition-all duration-300 flex items-center justify-center shrink-0 ${
-            (input.trim() || attachment) && !isLoading
+          disabled={isLoading && !isListening}
+          className={`w-[46px] h-[46px] rounded-[20px] transition-all duration-300 flex items-center justify-center shrink-0 shadow-lg ${
+             canSend
               ? isImageMode 
-                ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:scale-110 shadow-lg shadow-purple-500/30'
-                : 'bg-pey-accent text-pey-bg hover:scale-110 hover:rotate-12 shadow-lg shadow-pey-accent/30'
-              : 'bg-pey-bg border border-pey-border text-pey-muted cursor-not-allowed'
+                ? 'bg-gradient-to-tr from-purple-500 to-pink-500 text-white hover:scale-105'
+                : 'bg-pey-text text-pey-bg hover:bg-pey-accent hover:scale-105'
+              : isListening
+                ? 'bg-red-500 text-white animate-pulse'
+                : 'bg-transparent text-pey-muted hover:text-pey-text hover:bg-pey-text/5'
           }`}
+          title={canSend ? "Kirim" : isListening ? "Stop" : "Bicara"}
         >
-          {isLoading ? (
+          {isLoading && !isListening ? (
             <div className="w-5 h-5 border-2 border-pey-muted border-t-transparent rounded-full animate-spin" />
           ) : (
-            isImageMode ? <Sparkles size={22} strokeWidth={2.5} className="animate-pulse" /> : <Send size={22} strokeWidth={2.5} className={(input.trim() || attachment) ? 'ml-0.5' : ''} />
+            canSend ? (
+               isImageMode ? <Sparkles size={20} fill="currentColor" /> : <Send size={20} className="ml-0.5" fill="currentColor" />
+            ) : isListening ? (
+               <div className="w-2.5 h-2.5 bg-white rounded-[2px] animate-pulse" /> // Stop Icon mimic
+            ) : (
+               <Mic size={22} />
+            )
           )}
         </button>
+
       </form>
-      
-      {/* Listening Indicator Overlay */}
-      {isListening && (
-          <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-red-500/90 text-white text-xs font-bold px-3 py-1 rounded-full animate-bounce shadow-lg backdrop-blur-sm z-50">
-              ● LISTENING...
-          </div>
-      )}
     </div>
   );
 };
