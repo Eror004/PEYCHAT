@@ -401,7 +401,8 @@ const App: React.FC = () => {
                             </button>
 
                             {isPersonaMenuOpen && (
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card/95 backdrop-blur-xl border border-pey-border/50 rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top">
+                                // FIX: Changed bg to solid pey-card to prevent transparency overlap issues
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card border border-pey-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top ring-1 ring-black/20">
                                     <div className="py-1 flex flex-col">
                                         {PERSONAS.map((p) => {
                                             const isSelected = currentPersonaId === p.id;
