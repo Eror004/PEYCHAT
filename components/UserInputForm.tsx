@@ -258,7 +258,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
                 ? "Lagi dengerin kamu..." 
                 : attachment 
                     ? "Tanya soal gambar ini..." 
-                    : "Ketik pesan..."
+                    : "TANYA TUAN PEY..."
           }
           rows={1}
           className="w-full bg-transparent text-pey-text placeholder-pey-muted px-2 py-3 focus:outline-none resize-none max-h-32 min-h-[50px] font-sans font-medium text-base sm:text-lg"
