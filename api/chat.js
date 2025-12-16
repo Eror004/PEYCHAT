@@ -87,9 +87,17 @@ export default async function handler(req, res) {
     for (const currentKey of shuffledKeys) {
       try {
           const ai = new GoogleGenAI({ apiKey: currentKey });
+          
+          // UPGRADE: Mengaktifkan Google Search Grounding
+          // Ini membuat model bisa mencari Lirik, Cuaca, Berita, dan Lokasi secara real-time.
           const chat = ai.chats.create({
               model: 'gemini-2.5-flash',
-              config: { systemInstruction: systemInstruction },
+              config: { 
+                systemInstruction: systemInstruction,
+                tools: [
+                  { googleSearch: {} } // BRAIN UPGRADE: ACCESS TO INTERNET
+                ]
+              },
               history: validHistory,
           });
 
