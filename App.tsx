@@ -138,6 +138,45 @@ const THEMES: Record<ThemeName, ThemeColors> = {
     }
 };
 
+// --- QUICK SUGGESTIONS DATA ---
+const SUGGESTIONS: Record<string, string[]> = {
+    'asisten': [
+        "Roast selera musik gue",
+        "Kenapa gue masih jomblo?",
+        "Fakta random yang gelap",
+        "Ide bisnis modal nekat",
+        "Saran hidup brutal"
+    ],
+    'bestie': [
+        "Spill tea hari ini",
+        "Tebak zodiak gue dong",
+        "Rekomendasi lagu galau",
+        "Ide outfit buat nge-date",
+        "Cara move on jalur ekspres"
+    ],
+    'pacar': [
+        "Aku kangen kamu",
+        "Gombalin aku dong",
+        "Besok kita jalan kemana?",
+        "Bacain dongeng tidur",
+        "Aku lagi sedih nih..."
+    ],
+    'curhat': [
+        "Hari ini berat banget...",
+        "Aku merasa gak dihargai",
+        "Bingung sama masa depan",
+        "Gimana cara damai sama diri sendiri?",
+        "Aku butuh teman cerita"
+    ],
+    'netral': [
+        "Buatkan rencana belajar Python",
+        "Jelaskan Teori Relativitas",
+        "Resep masakan simple sehat",
+        "Tips manajemen waktu",
+        "Perbaiki grammar kalimat ini"
+    ]
+};
+
 const generateId = () => `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const App: React.FC = () => {
@@ -170,6 +209,7 @@ const App: React.FC = () => {
   // Derived state
   const currentPersona = PERSONAS.find(p => p.id === currentPersonaId) || PERSONAS[0];
   const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[0];
+  const currentSuggestions = SUGGESTIONS[currentPersonaId] || SUGGESTIONS['asisten'];
 
   // --- Effects ---
   
@@ -358,35 +398,38 @@ const App: React.FC = () => {
                     {/* Abstract Decorative Glow */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pey-accent/5 rounded-full blur-3xl pointer-events-none"></div>
 
-                    <h2 className="text-5xl md:text-8xl font-display font-bold mb-6 tracking-tighter">
+                    {/* RESTORED LARGER SIZE HERE: text-5xl md:text-8xl */}
+                    <h2 className="text-5xl md:text-8xl font-display font-bold mb-8 tracking-tighter">
                         PEY<span className="text-transparent bg-clip-text bg-gradient-to-tr from-pey-accent to-pey-secondary">CHAT</span>
                     </h2>
                     
                     <div className="flex items-center gap-2 mb-8 relative z-20">
-                        <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-card/50 border border-pey-border backdrop-blur-sm">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                            <span className="text-xs font-mono font-bold tracking-widest text-pey-text/80 uppercase">System Online</span>
+                        {/* REDUCED SIZE HERE: px-3 py-1, text-[10px], w-1.5 h-1.5 */}
+                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-pey-card/50 border border-pey-border backdrop-blur-sm">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                            <span className="text-[10px] font-mono font-bold tracking-widest text-pey-text/80 uppercase">System Online</span>
                         </div>
-                        <div className="w-px h-4 bg-pey-border"></div>
+                        {/* REDUCED HEIGHT: h-3 */}
+                        <div className="w-px h-3 bg-pey-border"></div>
                         
-                        {/* Interactive Persona Selector (CUSTOM ELEGANT DROPDOWN) */}
+                        {/* Interactive Persona Selector (REDUCED SIZE) */}
                         <div className="relative" ref={personaMenuRef}>
                             <button 
                                 onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
-                                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
                             >
-                                <span className="text-xs font-mono font-bold tracking-widest text-pey-accent uppercase truncate max-w-[200px] sm:max-w-none">
+                                <span className="text-[10px] font-mono font-bold tracking-widest text-pey-accent uppercase truncate max-w-[150px] sm:max-w-none">
                                     {currentPersona.name}
                                 </span>
                                 <ChevronDown 
-                                    size={14} 
+                                    size={12} 
                                     className={`text-pey-accent transition-transform duration-300 ${isPersonaMenuOpen ? 'rotate-180' : 'group-hover:translate-y-0.5'}`} 
                                 />
                             </button>
 
                             {/* The Elegant Dropdown Menu (NO EMOJI, CLEAN STYLE) */}
                             {isPersonaMenuOpen && (
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 min-w-[240px] bg-pey-card/95 backdrop-blur-xl border border-pey-border/50 rounded-xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top">
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card/95 backdrop-blur-xl border border-pey-border/50 rounded-xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top">
                                     <div className="py-1 flex flex-col">
                                         {PERSONAS.map((p) => {
                                             const isSelected = currentPersonaId === p.id;
@@ -420,13 +463,13 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    <div className="flex flex-col items-center gap-3 mb-10">
+                    <div className="flex flex-col items-center gap-4 mb-8">
                         {/* Dynamic Description based on Mode */}
-                        <p className="text-pey-muted max-w-lg text-lg sm:text-xl leading-relaxed font-light transition-all duration-300 min-h-[3.5rem] flex items-center justify-center animate-[fadeIn_0.5s_ease-out]">
+                        <p className="text-pey-muted max-w-md text-sm sm:text-base leading-relaxed font-normal transition-all duration-300 min-h-[3rem] flex items-center justify-center animate-[fadeIn_0.5s_ease-out] px-4">
                             {currentPersona.description}
                         </p>
                         
-                        <div className="flex flex-wrap items-center justify-center gap-2 mt-4 opacity-60">
+                        <div className="flex flex-wrap items-center justify-center gap-2 mt-2 opacity-60">
                             <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono uppercase tracking-widest text-pey-text border border-pey-border px-3 py-1 rounded-sm">
                                 <Globe size={10} /> Search
                             </div>
@@ -435,6 +478,22 @@ const App: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* --- NEW FEATURE: DYNAMIC SUGGESTIONS (TEXT ONLY - NO EMOJI) --- */}
+                    <div className="w-full max-w-2xl px-4 animate-fade-in delay-100">
+                        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                            {currentSuggestions.map((suggestion, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleSendMessage(suggestion)}
+                                    className="px-5 py-2.5 bg-pey-card/50 hover:bg-pey-accent/10 border border-pey-border hover:border-pey-accent rounded-full text-xs sm:text-sm text-pey-text/80 hover:text-pey-accent transition-all duration-300 active:scale-95 backdrop-blur-sm group font-medium"
+                                >
+                                    {suggestion}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                 </div>
             ) : (
                 <div className="flex flex-col pb-4 gap-y-2">
