@@ -34,6 +34,7 @@
               'fade-in': 'fadeIn 1s ease-out forwards',
               'scale-in': 'scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'schitts-reveal': 'schittsReveal 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
+              'gradient-flow': 'gradientFlow 3s ease infinite',
             },
             keyframes: {
               float: {
@@ -68,6 +69,10 @@
                   filter: 'blur(0px)',
                   transform: 'scale(1)'
                 },
+              },
+              gradientFlow: {
+                '0%, 100%': { 'background-position': '0% 50%' },
+                '50%': { 'background-position': '100% 50%' },
               }
             }
           },

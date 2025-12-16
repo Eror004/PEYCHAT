@@ -369,10 +369,10 @@ const App: React.FC = () => {
                 // --- LANDING PAGE (CLEAN & AESTHETIC REVEAL) ---
                 <div key={currentPersonaId} className="min-h-full flex flex-col items-center justify-center text-center px-6 py-10 relative">
                     
-                    {/* Main Title - SCHITT'S CREEK STYLE REVEAL */}
-                    <div className="relative mb-8">
+                    {/* Main Title - SCHITT'S CREEK STYLE REVEAL + FLOATING & GRADIENT FLOW */}
+                    <div className="relative mb-8 animate-float">
                         <h2 className="text-6xl md:text-8xl font-display font-bold text-pey-text tracking-normal opacity-0 animate-schitts-reveal">
-                            PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
+                            PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary bg-[length:200%_auto] animate-gradient-flow">CHAT</span>
                         </h2>
                     </div>
                     
