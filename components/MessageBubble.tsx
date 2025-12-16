@@ -28,7 +28,7 @@ const decodeAudio = async (base64Data: string): Promise<AudioBuffer> => {
 };
 
 // Component khusus untuk Code Block
-const CodeBlock = ({ language, children }: { language: string, children: React.ReactNode }) => {
+const CodeBlock = ({ language, children }: { language: string, children?: React.ReactNode }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopyCode = () => {

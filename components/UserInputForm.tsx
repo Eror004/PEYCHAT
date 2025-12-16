@@ -1,25 +1,50 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles, Flame, Plus, Square } from 'lucide-react';
+import { Send, Paperclip, X, FileVideo, Mic, MicOff, Palette, Sparkles, Flame, Plus, Square, Trash2, Check, StopCircle } from 'lucide-react';
 import { Attachment } from '../types';
 
 interface UserInputFormProps {
   onSendMessage: (text: string, attachments?: Attachment[], isImageGen?: boolean) => void;
-  onStop: () => void; // Prop baru untuk stop generation
+  onStop: () => void;
   isLoading: boolean;
 }
+
+// Komponen Visualizer Sederhana (CSS Animation)
+const AudioVisualizer = () => {
+  return (
+    <div className="flex items-center gap-1 h-8 px-4">
+      {[...Array(12)].map((_, i) => (
+        <div
+          key={i}
+          className="w-1 bg-pey-accent rounded-full animate-[pulse_0.8s_ease-in-out_infinite]"
+          style={{
+            height: `${Math.max(20, Math.random() * 100)}%`,
+            animationDelay: `${i * 0.05}s`,
+            animationDuration: `${0.4 + Math.random() * 0.5}s`
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onStop, isLoading }) => {
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
+  
+  // Voice State
   const [isListening, setIsListening] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [tempTranscript, setTempTranscript] = useState('');
+  
   const [isImageMode, setIsImageMode] = useState(false);
-  const [showTools, setShowTools] = useState(false); // State untuk menu tools
+  const [showTools, setShowTools] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const roastInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const timerRef = useRef<number | null>(null);
 
   // Close tools menu when clicking outside
   useEffect(() => {
@@ -32,6 +57,21 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Timer Logic
+  useEffect(() => {
+    if (isListening) {
+      timerRef.current = window.setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setRecordingDuration(0);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isListening]);
+
   // Initialize Speech Recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -42,23 +82,65 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
         recognition.lang = 'id-ID'; 
 
         recognition.onresult = (event: any) => {
+            let interimTranscript = '';
             let finalTranscript = '';
+
             for (let i = event.resultIndex; i < event.results.length; ++i) {
                 if (event.results[i].isFinal) {
                     finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
                 }
             }
+
+            // Update transcript real-time visualization
+            setTempTranscript(interimTranscript || finalTranscript);
+
             if (finalTranscript) {
                 setInput(prev => prev + (prev ? ' ' : '') + finalTranscript);
+                setTempTranscript(''); // Reset temp visualizer text after finalized
             }
         };
 
         recognition.onend = () => {
+            // Jika mati sendiri tapi user belum klik stop, biarkan state UI handle
+            // Kecuali jika error, handler onError yang akan mengurus
+        };
+        
+        recognition.onerror = (event: any) => {
+            console.error("Speech recognition error", event.error);
+            
+            // Ignore no-speech errors (common when silence)
+            if (event.error === 'no-speech') {
+                return;
+            }
+
             setIsListening(false);
+            
+            if (event.error === 'not-allowed') {
+                alert("Akses mikrofon ditolak! Mohon izinkan akses mikrofon di pengaturan browser Anda (klik ikon gembok/pengaturan di address bar).");
+            } else if (event.error === 'service-not-allowed') {
+                alert("Layanan suara tidak diizinkan oleh browser.");
+            } else if (event.error === 'network') {
+                alert("Masalah jaringan saat mencoba mengenali suara.");
+            } else {
+                // Log other errors but maybe don't alert to avoid spamming user
+                console.warn("Unhandled speech error:", event.error);
+            }
         };
 
         recognitionRef.current = recognition;
     }
+    
+    return () => {
+        if (recognitionRef.current) {
+            try {
+                recognitionRef.current.abort();
+            } catch (e) {
+                // ignore
+            }
+        }
+    };
   }, []);
 
   // Auto-resize textarea
@@ -69,19 +151,38 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
     }
   }, [input]);
 
-  const toggleListening = () => {
+  const startListening = () => {
     if (!recognitionRef.current) {
         alert("Browser kamu gak support fitur suara nih. Coba pake Chrome/Edge ya!");
         return;
     }
-
-    if (isListening) {
-        recognitionRef.current.stop();
-        setIsListening(false);
-    } else {
-        recognitionRef.current.start();
+    
+    try {
         setIsListening(true);
+        setTempTranscript('');
+        recognitionRef.current.start();
+    } catch (e) {
+        console.error("Failed to start recognition:", e);
+        setIsListening(false);
+        alert("Gagal memulai mikrofon. Coba refresh halaman.");
     }
+  };
+
+  const stopListening = (save: boolean) => {
+    if (recognitionRef.current) {
+        try {
+            recognitionRef.current.stop();
+        } catch (e) {
+            // ignore if already stopped
+        }
+    }
+    setIsListening(false);
+    
+    if (!save) {
+        setInput(''); // Clear input if cancelled
+        setTempTranscript('');
+    }
+    // If save is true, text is already in 'input' state from onresult
   };
 
   const toggleImageMode = () => {
@@ -90,15 +191,13 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
           setAttachment(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
       }
-      setShowTools(false); // Auto close menu
+      setShowTools(false);
   };
 
   const processFile = (file: File, isRoast: boolean = false) => {
     const MAX_SIZE_MB = 3;
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       alert(`Waduh, gambarnya kegedean! Maksimal ${MAX_SIZE_MB}MB ya.`);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (roastInputRef.current) roastInputRef.current.value = '';
       return;
     }
 
@@ -122,7 +221,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
           setInput("Roast vibe foto ini! Nilai outfit, background, & estetikanya sesuai persona lo! 💀🔥");
           setTimeout(() => textareaRef.current?.focus(), 100);
       }
-      setShowTools(false); // Auto close menu
+      setShowTools(false);
     };
     reader.readAsDataURL(file);
   };
@@ -157,19 +256,24 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     
-    // Logic: Jika sedang loading, tombol ini berfungsi sebagai STOP
-    if (isLoading && !isListening) {
+    // Jika loading, tombol jadi STOP
+    if (isLoading) {
         onStop();
         return;
     }
     
-    // Logic: Jika sedang listening, stop dulu.
+    // Jika recording, stop dan kirim
     if (isListening) {
-        toggleListening();
+        stopListening(true);
+        // Delay sedikit agar state terupdate sebelum kirim (optional, usually instant)
+        setTimeout(() => {
+            if (input.trim()) onSendMessage(input.trim(), undefined, isImageMode);
+            setInput('');
+        }, 200);
         return;
     }
 
-    if ((!input.trim() && !attachment) || isLoading) return; // Prevent empty send
+    if ((!input.trim() && !attachment) || isLoading) return;
 
     onSendMessage(input.trim(), attachment ? [attachment] : undefined, isImageMode);
     setInput('');
@@ -186,6 +290,12 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
     }
   };
 
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   // Determine Right Button Icon
   const canSend = (input.trim().length > 0 || attachment !== null);
   
@@ -197,14 +307,14 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
       <input type="file" ref={roastInputRef} onChange={handleRoastSelect} className="hidden" accept="image/*" />
 
       {/* Mode Indicator (Floating) */}
-      {isImageMode && (
+      {isImageMode && !isListening && (
           <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold tracking-widest text-white bg-gradient-to-r from-purple-500 to-pink-500 px-3 py-0.5 rounded-full shadow-lg animate-pulse flex items-center gap-1 z-20">
               <Sparkles size={10} /> MODE IMAJINASI
           </div>
       )}
 
       {/* Preview Area (Compact) */}
-      {attachment && (
+      {attachment && !isListening && (
         <div className="mb-2 ml-10 inline-flex relative group animate-[scaleIn_0.2s_ease-out] origin-bottom-left z-0">
           <div className="relative h-16 rounded-xl overflow-hidden border border-pey-border/50 shadow-lg bg-black/40 backdrop-blur-md">
             {attachment.type === 'image' ? (
@@ -233,15 +343,56 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
         onSubmit={handleSubmit}
         className={`relative flex items-end gap-2 p-1.5 bg-pey-card/60 backdrop-blur-xl border transition-all duration-300 rounded-[26px] shadow-2xl ${
             isListening 
-            ? 'border-red-500/30 ring-1 ring-red-500/20' 
+            ? 'border-pey-accent/50 ring-2 ring-pey-accent/20 bg-pey-card' 
             : isImageMode 
                 ? 'border-purple-500/30 ring-1 ring-purple-500/20'
                 : 'border-pey-border/60 focus-within:border-pey-accent/50 focus-within:ring-1 focus-within:ring-pey-accent/20'
         }`}
       >
         
+        {/* === RECORDING OVERLAY === */}
+        {isListening ? (
+             <div className="absolute inset-0 z-20 flex items-center justify-between px-2 bg-pey-card rounded-[26px]">
+                {/* Left: Delete / Cancel */}
+                <button
+                    type="button"
+                    onClick={() => stopListening(false)}
+                    className="w-10 h-10 flex items-center justify-center rounded-full text-red-500 hover:bg-red-500/10 transition-colors animate-scale-in"
+                    title="Batal"
+                >
+                    <Trash2 size={20} />
+                </button>
+
+                {/* Center: Visualizer & Timer */}
+                <div className="flex-1 flex flex-col items-center justify-center">
+                    <div className="flex items-center gap-2">
+                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                         <span className="text-xs font-mono font-bold text-pey-text">{formatTime(recordingDuration)}</span>
+                    </div>
+                    {/* Live Transcript Preview or Status */}
+                    <div className="h-5 overflow-hidden w-full flex justify-center">
+                        {tempTranscript ? (
+                             <p className="text-[10px] text-pey-text truncate max-w-[200px] animate-fade-in">{tempTranscript}</p>
+                        ) : (
+                             <AudioVisualizer />
+                        )}
+                    </div>
+                </div>
+
+                {/* Right: Done / Send (Replaces normal send button visually) */}
+                 <button
+                    type="button"
+                    onClick={() => handleSubmit()}
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-pey-accent text-pey-bg hover:scale-105 transition-transform animate-scale-in"
+                    title="Selesai & Kirim"
+                >
+                    <Send size={20} className="ml-0.5" />
+                </button>
+             </div>
+        ) : null}
+
         {/* LEFT: Toggle Tools Button */}
-        <div className="relative flex items-center justify-center h-[46px] w-[46px] shrink-0">
+        <div className={`relative flex items-center justify-center h-[46px] w-[46px] shrink-0 ${isListening ? 'invisible' : ''}`}>
              <button
                 type="button"
                 onClick={() => setShowTools(!showTools)}
@@ -255,14 +406,14 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
                 <Plus size={20} />
             </button>
 
-            {/* FLOATING TOOLS MENU (Pop-up) */}
+            {/* FLOATING TOOLS MENU */}
             <div className={`absolute bottom-full left-0 mb-3 flex flex-col gap-2 p-1.5 bg-pey-card/90 backdrop-blur-2xl border border-pey-border rounded-full shadow-xl transition-all duration-300 origin-bottom-left z-50 ${
                 showTools 
                 ? 'opacity-100 scale-100 translate-y-0' 
                 : 'opacity-0 scale-75 translate-y-4 pointer-events-none'
             }`}>
                  
-                 {/* 1. Upload */}
+                 {/* Upload */}
                 <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -272,7 +423,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
                     <Paperclip size={18} />
                 </button>
 
-                {/* 2. Roast Mode */}
+                {/* Roast Mode */}
                 <button
                     type="button"
                     onClick={() => roastInputRef.current?.click()}
@@ -282,7 +433,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
                     <Flame size={18} />
                 </button>
 
-                {/* 3. Image Gen Mode */}
+                {/* Image Gen Mode */}
                 <button
                     type="button"
                     onClick={toggleImageMode}
@@ -307,38 +458,43 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
           placeholder={
               isImageMode
               ? "Lukis apa hari ini..."
-              : isListening 
-                ? "Mendengarkan..." 
-                : "Tanya TUAN PEY..."
+              : "Tanya TUAN PEY..."
           }
           rows={1}
-          className="flex-1 bg-transparent text-pey-text placeholder-pey-muted/50 px-1 py-3 focus:outline-none resize-none max-h-32 min-h-[46px] font-sans font-medium text-base leading-relaxed"
-          disabled={isLoading && !isListening} // Disable typing if loading, but allow typing if just voice listening
+          className={`flex-1 bg-transparent text-pey-text placeholder-pey-muted/50 px-1 py-3 focus:outline-none resize-none max-h-32 min-h-[46px] font-sans font-medium text-base leading-relaxed ${isListening ? 'opacity-0' : ''}`}
+          disabled={isLoading || isListening}
         />
 
-        {/* RIGHT: Contextual Action Button (Mic / Send / Stop) */}
+        {/* RIGHT: Contextual Action Button */}
         <button
-          type="submit"
+          type={isLoading ? "button" : "submit"} // Change type to avoid auto-submit logic on click if just mic
+          onClick={(e) => {
+              if (isLoading) {
+                  onStop(); // Stop Generation
+              } else if (!canSend && !isImageMode) {
+                  e.preventDefault(); // Prevent submit form
+                  startListening(); // Start Mic
+              }
+              // Else let the form submit normally
+          }}
           className={`w-[46px] h-[46px] rounded-[20px] transition-all duration-300 flex items-center justify-center shrink-0 shadow-lg ${
-             isLoading && !isListening
-                ? 'bg-red-500 text-white hover:bg-red-600 hover:scale-105' // STOP BUTTON STYLE
+             isLoading
+                ? 'bg-red-500 text-white hover:bg-red-600 hover:scale-105' // STOP BUTTON
                 : canSend
                     ? isImageMode 
                         ? 'bg-gradient-to-tr from-purple-500 to-pink-500 text-white hover:scale-105'
                         : 'bg-pey-text text-pey-bg hover:bg-pey-accent hover:scale-105'
-                    : isListening
-                        ? 'bg-red-500 text-white animate-pulse'
+                    : isListening // Should be handled by overlay, but just in case
+                        ? 'bg-transparent opacity-0'
                         : 'bg-transparent text-pey-muted hover:text-pey-text hover:bg-pey-text/5'
           }`}
-          title={isLoading && !isListening ? "Stop Bacot" : canSend ? "Kirim" : isListening ? "Stop Listening" : "Bicara"}
+          title={isLoading ? "Stop Bacot" : canSend ? "Kirim" : "Tahan Bacot (Klik)"}
         >
-          {isLoading && !isListening ? (
-             <Square size={20} fill="currentColor" /> // STOP ICON
+          {isLoading ? (
+             <Square size={20} fill="currentColor" />
           ) : (
             canSend ? (
                isImageMode ? <Sparkles size={20} fill="currentColor" /> : <Send size={20} className="ml-0.5" fill="currentColor" />
-            ) : isListening ? (
-               <div className="w-2.5 h-2.5 bg-white rounded-[2px] animate-pulse" /> // Stop Icon mimic for mic
             ) : (
                <Mic size={22} />
             )
