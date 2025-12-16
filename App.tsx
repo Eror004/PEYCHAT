@@ -385,7 +385,8 @@ const App: React.FC = () => {
                         </div>
                         
                         {/* Persona: Slide IN RIGHT */}
-                        <div className="relative opacity-0 animate-slide-in-right delay-500" ref={personaMenuRef}>
+                        {/* Fix: Added z-50 to ensure dropdown appears above capabilities animation */}
+                        <div className="relative opacity-0 animate-slide-in-right delay-500 z-50" ref={personaMenuRef}>
                             <button 
                                 onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
                                 className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
