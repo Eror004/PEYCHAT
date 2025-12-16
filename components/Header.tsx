@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, RotateCcw, Palette, Settings } from 'lucide-react';
+import { RotateCcw, Palette, Settings } from 'lucide-react';
 import { ThemeName } from '../types';
 
 interface HeaderProps {
@@ -14,17 +14,13 @@ export const Header: React.FC<HeaderProps> = ({ onReset, currentTheme, onSwitchT
     // Changed from sticky to relative/block since it's now outside the scrollable area
     <header className="w-full backdrop-blur-xl bg-pey-bg/80 border-b border-pey-border transition-colors duration-500 supports-[backdrop-filter]:bg-pey-bg/60 shrink-0">
       <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3 group cursor-default relative">
-          <div className="relative w-10 h-10 rounded-xl bg-pey-accent flex items-center justify-center text-white shadow-lg shadow-pey-accent/20 transition-all duration-300 group-hover:scale-105 group-hover:rotate-6">
-            <Zap size={20} fill="currentColor" className="text-pey-bg" />
-            {/* Status Dot */}
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 border-2 border-pey-bg"></span>
-            </span>
-          </div>
+        <div className="flex items-center gap-2 sm:gap-3 group cursor-default relative">
+          
+          {/* --- LOGO REMOVED --- */}
+          {/* Hanya Text Title */}
+
           <h1 className="font-display font-bold text-2xl tracking-tighter text-pey-text">
-            PEY<span className="text-pey-accent">CHAT</span>
+            PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
           </h1>
         </div>
         
