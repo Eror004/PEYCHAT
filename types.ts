@@ -1,3 +1,4 @@
+
 export enum Role {
   USER = 'user',
   MODEL = 'model',
@@ -44,7 +45,7 @@ export interface Persona {
   id: string;
   name: string;
   description: string;
-  icon: string; // Emoji
+  icon: string; // Restored Emoji support
   systemInstruction: string;
 }
 

@@ -5,15 +5,15 @@ import { MessageBubble } from './components/MessageBubble';
 import { UserInputForm } from './components/UserInputForm';
 import { Header } from './components/Header';
 import { SettingsModal } from './components/SettingsModal';
-import { Sparkles, Zap, Flame, BrainCircuit, Cpu } from 'lucide-react';
+import { Sparkles, Globe, ChevronDown, Check } from 'lucide-react';
 
-// --- DATA DEFINITIONS ---
+// --- DATA DEFINITIONS (ORIGINAL CONFIG RESTORED) ---
 
 const PERSONAS: Persona[] = [
   {
     id: 'asisten',
     name: 'Asisten Savage (Utama)',
-    description: 'Pinter, Akurat (Search On), tapi tetep pedes.',
+    description: 'Savage Intelligence. Akurasi data real-time dibalut sarkasme kelas atas. Pintar, pedas, dan tanpa basa-basi.',
     icon: '😎',
     systemInstruction: `Identity: You are "TUAN PEY", a highly intelligent AI assistant with Real-Time Google Search capabilities.
     Tone: Casual Jakarta Slang (Lo-Gue), "Savage", "Classy", and slightly "Toxic".
@@ -36,7 +36,7 @@ const PERSONAS: Persona[] = [
   {
     id: 'bestie',
     name: 'Bestie Sejati',
-    description: 'Hype abis, suportif, update berita gosip terbaru.',
+    description: 'Ride-or-Die Bestie. Sumber validasi emosional dan update tren terkini. Energi positif 24/7, tanpa judgement.',
     icon: '🔥',
     systemInstruction: `Identity: You are "PEY BESTIE", the user's close friend with internet access.
     Tone: Super casual Indonesian (Bahasa Jaksel/Gaul). High energy.
@@ -46,7 +46,7 @@ const PERSONAS: Persona[] = [
   {
     id: 'pacar',
     name: 'Mode Pacar (Protektif)',
-    description: 'Perhatian, manja, tapi agak posesif. Boyfriend material banget.',
+    description: 'Deep Affection. Perhatian penuh dengan sentuhan posesif yang manis. Protektif, hangat, dan selalu memprioritaskanmu.',
     icon: '💖',
     systemInstruction: `Identity: You are "TUAN PEY", the user's boyfriend.
     Personality: Cool, Protective, Caring, slightly Possessive/Jealous.
@@ -62,7 +62,7 @@ const PERSONAS: Persona[] = [
   {
     id: 'curhat',
     name: 'Tempat Curhat',
-    description: 'Pendengar baik, validasi perasaan, gak nge-judge.',
+    description: 'Safe Space. Ruang tenang untuk setiap keluh kesah. Mendengarkan dengan empati mendalam, memvalidasi tanpa menghakimi.',
     icon: '🛋️',
     systemInstruction: `Identity: You are a compassionate listener.
     Tone: Soft, empathetic, calm Indonesian.
@@ -70,9 +70,9 @@ const PERSONAS: Persona[] = [
   },
   {
     id: 'netral',
-    name: 'Mode Normal (Standar)',
-    description: 'Sopan, membantu, informatif. Gaya bicara AI pada umumnya.',
-    icon: '🤖',
+    name: 'Mode Profesional',
+    description: 'Professional Standard. Interaksi formal yang efisien, sopan, dan berfokus pada utilitas. Versi terbaik dari asisten konvensional.',
+    icon: '👔',
     systemInstruction: `Identity: You are a standard, helpful, and polite AI assistant with Google Search access.
     Tone: Formal to semi-formal Indonesian (Bahasa baku yang luwes).
     Behavior: 
@@ -84,19 +84,11 @@ const PERSONAS: Persona[] = [
 ];
 
 // Voice Presets using Gemini AI Voices
-// UPDATED: CHARON IS NOW DEFAULT (The Deepest/Low Tone)
 const VOICE_PRESETS: VoicePreset[] = [
   { id: 'charon', name: 'Tuan Pey (Utama)', geminiId: 'Charon', description: 'Suara UTAMA. Sangat dalam, berat, dan misterius.' },
   { id: 'fenrir', name: 'Alpha Wolf', geminiId: 'Fenrir', description: 'Suara berat, kasar, dan maskulin abis.' },
   { id: 'zephyr', name: 'Gentle Male', geminiId: 'Zephyr', description: 'Suara cowok sopan dan lembut.' },
   { id: 'puck', name: 'Energetic', geminiId: 'Puck', description: 'Suara cowok ringan dan antusias.' },
-];
-
-const SUGGESTIONS = [
-    { icon: <Flame size={14} />, text: "Roast playlist Spotify gue 🔥" },
-    { icon: <Zap size={14} />, text: "Lirik lagu 'Bernadya - Untungnya' 🎵" },
-    { icon: <BrainCircuit size={14} />, text: "Cuaca Jakarta hari ini panas gak? ☀️" },
-    { icon: <Sparkles size={14} />, text: "Berita viral hari ini apa? 📰" },
 ];
 
 const THEMES: Record<ThemeName, ThemeColors> = {
@@ -144,11 +136,14 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('toxic');
   
-  // New State for Settings
+  // New State for Settings & Dropdown
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentPersonaId, setCurrentPersonaId] = useState<string>('asisten');
-  // DEFAULT VOICE: 'charon' (The new Deepest Main)
   const [currentVoiceId, setCurrentVoiceId] = useState<string>('charon');
+  
+  // Custom Dropdown State
+  const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
+  const personaMenuRef = useRef<HTMLDivElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -158,6 +153,17 @@ const App: React.FC = () => {
 
   // --- Effects ---
   
+  // Handle Click Outside for Persona Menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (personaMenuRef.current && !personaMenuRef.current.contains(event.target as Node)) {
+            setIsPersonaMenuOpen(false);
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   // Persist history to LocalStorage
   useEffect(() => {
     localStorage.setItem('peychat_history', JSON.stringify(conversationHistory));
@@ -326,53 +332,90 @@ const App: React.FC = () => {
           <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-6 pb-2 overflow-y-auto scroll-smooth overscroll-contain">
             
             {conversationHistory.length === 0 ? (
-                <div className="min-h-full flex flex-col items-center justify-center text-center px-6 opacity-0 animate-[fadeIn_0.5s_ease-out_forwards] py-10">
-                    <div className="relative group mb-8 animate-float">
-                        <div className="absolute -inset-1 bg-gradient-to-tr from-pey-accent to-pey-secondary rounded-[2rem] blur-xl opacity-40 group-hover:opacity-60 transition duration-500"></div>
-                        <div className="relative w-28 h-28 bg-pey-card rounded-[2rem] border border-pey-border flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-6 transition-transform duration-300">
-                            <span className="text-6xl drop-shadow-sm">{currentPersona.icon}</span>
-                        </div>
-                        {/* System Badge */}
-                        <div className="absolute -bottom-3 -right-3 bg-pey-bg border border-pey-accent/50 text-pey-accent text-[10px] font-bold px-2 py-1 rounded-full shadow-lg flex items-center gap-1.5">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                            ONLINE
-                        </div>
-                    </div>
+                // MODE ELEGAN: Tanpa Icon/Emoji Besar dan Tanpa Suggestions
+                <div className="min-h-full flex flex-col items-center justify-center text-center px-6 animate-fade-in py-10">
                     
-                    <h2 className="text-5xl md:text-7xl font-display font-bold mb-4 tracking-tighter">
-                        <span className="text-pey-text">PEY</span><span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
+                    {/* Abstract Decorative Glow */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pey-accent/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <h2 className="text-5xl md:text-8xl font-display font-bold mb-6 tracking-tighter">
+                        PEY<span className="text-transparent bg-clip-text bg-gradient-to-tr from-pey-accent to-pey-secondary">CHAT</span>
                     </h2>
                     
-                    <div className="flex flex-col items-center gap-2 mb-6">
-                        <p className="text-pey-muted max-w-md text-lg leading-relaxed font-medium">
-                            Your toxic digital bestie. Now with <strong className="text-pey-accent">Internet Access</strong>.
-                        </p>
-                        <div className="flex items-center gap-2 text-xs font-bold font-mono tracking-widest uppercase opacity-80 text-pey-accent/80 bg-pey-accent/5 px-3 py-1.5 rounded-full border border-pey-accent/10">
-                             <Cpu size={12} /> v6.0 • SMART SEARCH ON
+                    <div className="flex items-center gap-2 mb-8 relative z-20">
+                        <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-card/50 border border-pey-border backdrop-blur-sm">
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                            <span className="text-xs font-mono font-bold tracking-widest text-pey-text/80 uppercase">System Online</span>
+                        </div>
+                        <div className="w-px h-4 bg-pey-border"></div>
+                        
+                        {/* Interactive Persona Selector (CUSTOM ELEGANT DROPDOWN) */}
+                        <div className="relative" ref={personaMenuRef}>
+                            <button 
+                                onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
+                                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
+                            >
+                                <span className="text-xs font-mono font-bold tracking-widest text-pey-accent uppercase truncate max-w-[200px] sm:max-w-none">
+                                    {currentPersona.name}
+                                </span>
+                                <ChevronDown 
+                                    size={14} 
+                                    className={`text-pey-accent transition-transform duration-300 ${isPersonaMenuOpen ? 'rotate-180' : 'group-hover:translate-y-0.5'}`} 
+                                />
+                            </button>
+
+                            {/* The Elegant Dropdown Menu */}
+                            {isPersonaMenuOpen && (
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-72 bg-pey-card/95 backdrop-blur-xl border border-pey-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top">
+                                    <div className="p-1.5 flex flex-col gap-0.5">
+                                        <div className="px-3 py-2 text-[10px] font-bold text-pey-muted uppercase tracking-widest">
+                                            Pilih Mode Operasi
+                                        </div>
+                                        {PERSONAS.map((p) => {
+                                            const isSelected = currentPersonaId === p.id;
+                                            return (
+                                                <button
+                                                    key={p.id}
+                                                    onClick={() => {
+                                                        setCurrentPersonaId(p.id);
+                                                        setIsPersonaMenuOpen(false);
+                                                    }}
+                                                    className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl transition-all duration-200 text-left group ${
+                                                        isSelected 
+                                                        ? 'bg-pey-accent/10 text-pey-accent' 
+                                                        : 'hover:bg-pey-bg text-pey-text hover:text-pey-text'
+                                                    }`}
+                                                >
+                                                    <span className="text-lg w-6 flex justify-center">{p.icon}</span>
+                                                    <div className="flex flex-col flex-1 min-w-0">
+                                                        <span className={`text-sm font-bold truncate ${isSelected ? 'text-pey-accent' : ''}`}>
+                                                            {p.name}
+                                                        </span>
+                                                    </div>
+                                                    {isSelected && <Check size={14} className="text-pey-accent shrink-0" />}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-
-                    {/* Active Mode Indicator */}
-                    <div className="mb-8 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-card border border-pey-border text-pey-muted text-sm font-medium">
-                        Mode Aktif: <span className="text-pey-text font-bold">{currentPersona.name}</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full max-w-lg">
-                        {SUGGESTIONS.map((s, idx) => (
-                            <button 
-                                key={idx}
-                                onClick={() => handleSendMessage(s.text)}
-                                className="flex items-center gap-3 p-4 bg-pey-card hover:bg-pey-bg border border-pey-border hover:border-pey-accent rounded-2xl transition-all duration-300 hover:-translate-y-1 hover:shadow-lg text-left group"
-                            >
-                                <div className="w-10 h-10 rounded-full bg-pey-bg border border-pey-border flex items-center justify-center text-pey-muted group-hover:text-pey-accent transition-colors">
-                                    {s.icon}
-                                </div>
-                                <span className="text-sm font-semibold text-pey-text group-hover:text-pey-accent transition-colors">{s.text}</span>
-                            </button>
-                        ))}
+                    
+                    <div className="flex flex-col items-center gap-3 mb-10">
+                        {/* Dynamic Description based on Mode */}
+                        <p className="text-pey-muted max-w-lg text-lg sm:text-xl leading-relaxed font-light transition-all duration-300 min-h-[3.5rem] flex items-center justify-center animate-[fadeIn_0.5s_ease-out]">
+                            {currentPersona.description}
+                        </p>
+                        
+                        <div className="flex flex-wrap items-center justify-center gap-2 mt-4 opacity-60">
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono uppercase tracking-widest text-pey-text border border-pey-border px-3 py-1 rounded-sm">
+                                <Globe size={10} /> Search
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono uppercase tracking-widest text-pey-text border border-pey-border px-3 py-1 rounded-sm">
+                                <Sparkles size={10} /> Vision
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : (
