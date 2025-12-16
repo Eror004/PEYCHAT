@@ -10,16 +10,12 @@ export default async function handler(req, res) {
     const { history, message, attachments, systemInstruction, customApiKey } = req.body;
 
     // 2. TENTUKAN KEY YANG AKAN DIPAKAI
-    // Jika user memberikan key sendiri (customApiKey), kita pakai itu saja.
-    // Jika tidak, kita pakai "The Avengers" (Key Rotation Server).
-    
     let targetKeys = [];
 
     if (customApiKey && customApiKey.trim().length > 0) {
         targetKeys = [customApiKey.trim()]; // Priority 1: User Key
     } else {
         // STRATEGI MULTI-AKUN (THE AVENGERS)
-        // Mendukung PEYY_KEY, PEYY_KEY_1 s.d PEYY_KEY_10, dan API_KEY
         const rawKeys = [
           process.env.PEYY_KEY,
           process.env.PEYY_KEY_1,
@@ -62,7 +58,6 @@ export default async function handler(req, res) {
     }));
 
     // --- CONSTRUCT CONTENTS (URUTAN PENTING UNTUK VISION!) ---
-    // Gemini lebih suka [Image, Text] daripada [Text, Image] untuk konteks yang lebih baik.
     let contents = [];
 
     // 1. Masukkan Attachments (Gambar/Video) DULUAN
@@ -101,14 +96,13 @@ export default async function handler(req, res) {
       try {
           const ai = new GoogleGenAI({ apiKey: currentKey });
           
-          // UPGRADE: Mengaktifkan Google Search Grounding
-          // Ini membuat model bisa mencari Lirik, Cuaca, Berita, dan Lokasi secara real-time.
+          // UPGRADE: Google Search Grounding & Retrieval
           const chat = ai.chats.create({
               model: 'gemini-2.5-flash',
               config: { 
                 systemInstruction: systemInstruction,
                 tools: [
-                  { googleSearch: {} } // BRAIN UPGRADE: ACCESS TO INTERNET
+                  { googleSearch: {} } // Enable Google Search
                 ]
               },
               history: validHistory,
@@ -122,20 +116,16 @@ export default async function handler(req, res) {
       } catch (err) {
           lastError = err;
           
-          // Jika menggunakan Custom Key, jangan coba key lain (karena cuma ada 1).
-          // Langsung throw error agar user tau key mereka salah/habis.
           if (customApiKey) {
              throw new Error(`Custom Key Error: ${err.message}`);
           }
 
-          // Jika pakai Server Key, lakukan rotasi bila kena Rate Limit
           const isRateLimit = err.message?.includes('429') || err.message?.includes('503');
           if (isRateLimit) {
               console.warn(`⚠️ Key ...${currentKey.slice(-4)} sibuk/limit. Ganti ke akun berikutnya...`);
               continue; 
           } else {
               console.error(`❌ Key ...${currentKey.slice(-4)} error:`, err.message);
-              // Jika error validasi (format salah), stop.
               if (err.message?.includes('INVALID_ARGUMENT') || err.message?.includes('400')) {
                    return res.status(400).json({ error: "Format request salah (400)." });
               }
@@ -156,11 +146,33 @@ export default async function handler(req, res) {
       'Transfer-Encoding': 'chunked',
     });
 
+    // Map untuk menyimpan sumber unik (URL -> Title)
+    const groundingSources = new Map();
+
     for await (const chunk of resultStream) {
+      // Extract Grounding Metadata
+      const groundingMetadata = chunk.candidates?.[0]?.groundingMetadata;
+      if (groundingMetadata?.groundingChunks) {
+        groundingMetadata.groundingChunks.forEach(c => {
+            if (c.web) {
+                groundingSources.set(c.web.uri, c.web.title || c.web.uri);
+            }
+        });
+      }
+
       if (chunk.text) {
         res.write(chunk.text);
       }
     }
+
+    // Append Sources to Response
+    if (groundingSources.size > 0) {
+        res.write("\n\n---\n**📚 Sumber & Referensi:**\n");
+        groundingSources.forEach((title, uri) => {
+            res.write(`- [${title}](${uri})\n`);
+        });
+    }
+
     res.end();
 
   } catch (globalError) {
