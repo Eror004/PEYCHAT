@@ -5,7 +5,8 @@ import { MessageBubble } from './components/MessageBubble';
 import { UserInputForm } from './components/UserInputForm';
 import { Header } from './components/Header';
 import { SettingsModal } from './components/SettingsModal';
-import { Sparkles, Globe, ChevronDown, Check } from 'lucide-react';
+import { Typewriter } from './components/Typewriter'; // Import Typewriter
+import { Sparkles, Globe, ChevronDown, Check, Terminal, Cpu } from 'lucide-react';
 
 // --- DATA DEFINITIONS ---
 
@@ -107,8 +108,8 @@ const VOICE_PRESETS: VoicePreset[] = [
 
 const THEMES: Record<ThemeName, ThemeColors> = {
     toxic: {
-        bg: '#09090b', card: '#18181b', text: '#f4f4f5', textMuted: '#a1a1aa',
-        accent: '#a3e635', accentHover: '#bef264', secondary: '#8b5cf6', border: 'rgba(255,255,255,0.08)',
+        bg: '#050505', card: '#0f0f11', text: '#f4f4f5', textMuted: '#a1a1aa',
+        accent: '#ccff00', accentHover: '#d9ff4d', secondary: '#8b5cf6', border: 'rgba(255,255,255,0.08)',
     },
     lovecore: {
         bg: '#1a050f', card: '#290f1e', text: '#fce7f3', textMuted: '#f472b6',
@@ -237,7 +238,7 @@ const App: React.FC = () => {
     }
     setConversationHistory([]);
     setIsLoading(false); 
-    setIsSettingsOpen(false); 
+    setIsSettingsOpen(false);
   };
 
   const handleSwitchTheme = () => {
@@ -362,34 +363,32 @@ const App: React.FC = () => {
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
 
-          <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-6 pb-2 overflow-y-auto scroll-smooth overscroll-contain">
+          <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-6 pb-2 overflow-y-auto scroll-smooth overscroll-contain relative">
             
             {conversationHistory.length === 0 ? (
-                // --- LANDING PAGE WITH STAGGERED ANIMATIONS ---
-                <div key={currentPersonaId} className="min-h-full flex flex-col items-center justify-center text-center px-6 py-10">
+                // --- LANDING PAGE (CLEAN & AESTHETIC REVEAL) ---
+                <div key={currentPersonaId} className="min-h-full flex flex-col items-center justify-center text-center px-6 py-10 relative">
                     
-                    {/* Animated Glow Background */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pey-accent/5 rounded-full blur-3xl pointer-events-none animate-pulse-fast"></div>
-
-                    {/* Main Title - Enter Immediate */}
-                    <h2 className="text-5xl md:text-8xl font-display font-bold mb-8 tracking-tighter opacity-0 animate-enter-slow">
-                        PEY<span className="text-transparent bg-clip-text bg-gradient-to-tr from-pey-accent to-pey-secondary">CHAT</span>
-                    </h2>
+                    {/* Main Title - SCHITT'S CREEK STYLE REVEAL */}
+                    <div className="relative mb-8">
+                        <h2 className="text-6xl md:text-8xl font-display font-bold text-pey-text tracking-normal opacity-0 animate-schitts-reveal">
+                            PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary">CHAT</span>
+                        </h2>
+                    </div>
                     
-                    {/* System Status & Persona Selector - Delay 100ms */}
-                    <div className="flex items-center gap-2 mb-8 relative z-20 opacity-0 animate-enter-medium delay-100">
-                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-pey-card/50 border border-pey-border backdrop-blur-sm shadow-lg">
+                    {/* System Status & Persona - Fade Up + Delay 100ms */}
+                    <div className="flex items-center gap-3 mb-8 opacity-0 animate-fade-up delay-100">
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-card border border-pey-border shadow-sm">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
-                            <span className="text-[10px] font-mono font-bold tracking-widest text-pey-text/80 uppercase">System Online</span>
+                            <span className="text-[10px] font-bold tracking-widest text-pey-muted uppercase">System Online</span>
                         </div>
-                        <div className="w-px h-3 bg-pey-border"></div>
                         
                         <div className="relative" ref={personaMenuRef}>
                             <button 
                                 onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
-                                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group shadow-md"
+                                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
                             >
-                                <span className="text-[10px] font-mono font-bold tracking-widest text-pey-accent uppercase truncate max-w-[150px] sm:max-w-none">
+                                <span className="text-[11px] font-bold tracking-widest text-pey-accent uppercase truncate max-w-[150px] sm:max-w-none">
                                     {currentPersona.name}
                                 </span>
                                 <ChevronDown 
@@ -399,7 +398,7 @@ const App: React.FC = () => {
                             </button>
 
                             {isPersonaMenuOpen && (
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card/95 backdrop-blur-xl border border-pey-border/50 rounded-xl shadow-2xl overflow-hidden z-50 animate-pop-in origin-top">
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card/95 backdrop-blur-xl border border-pey-border/50 rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top">
                                     <div className="py-1 flex flex-col">
                                         {PERSONAS.map((p) => {
                                             const isSelected = currentPersonaId === p.id;
@@ -416,11 +415,11 @@ const App: React.FC = () => {
                                                         : 'text-pey-muted hover:text-pey-text hover:bg-pey-text/5'
                                                     }`}
                                                 >
-                                                    <span className={`text-sm tracking-tight ${isSelected ? 'font-semibold' : 'font-medium'}`}>
+                                                    <span className={`text-xs tracking-tight uppercase ${isSelected ? 'font-bold' : 'font-medium'}`}>
                                                         {p.name}
                                                     </span>
                                                     {isSelected && (
-                                                        <Check size={14} strokeWidth={2.5} className="animate-scale-in" />
+                                                        <Check size={12} strokeWidth={3} className="animate-scale-in" />
                                                     )}
                                                 </button>
                                             )
@@ -431,32 +430,40 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* Description - Delay 200ms */}
-                    <div className="flex flex-col items-center gap-4 mb-8 opacity-0 animate-enter-medium delay-200">
-                        <p className="text-pey-muted max-w-md text-sm sm:text-base leading-relaxed font-normal transition-all duration-300 min-h-[3rem] flex items-center justify-center px-4">
-                            {currentPersona.description}
+                    {/* Description - Typewriter Effect */}
+                    <div className="flex flex-col items-center gap-6 mb-10 min-h-[50px]">
+                        <p className="text-pey-muted text-sm md:text-base leading-relaxed font-medium max-w-lg transition-all duration-300">
+                           <Typewriter text={currentPersona.description} speed={25} delay={300} />
                         </p>
                         
-                        <div className="flex flex-wrap items-center justify-center gap-2 mt-2 opacity-60">
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono uppercase tracking-widest text-pey-text border border-pey-border px-3 py-1 rounded-sm">
-                                <Globe size={10} /> Search
+                        {/* Capabilities Icons */}
+                        <div className="flex flex-wrap items-center justify-center gap-4 opacity-0 animate-fade-up delay-300">
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text">
+                                <Globe size={12} className="text-pey-accent" /> Web
                             </div>
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold font-mono uppercase tracking-widest text-pey-text border border-pey-border px-3 py-1 rounded-sm">
-                                <Sparkles size={10} /> Vision
+                            <div className="w-1 h-1 rounded-full bg-pey-border"></div>
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text">
+                                <Sparkles size={12} className="text-pey-secondary" /> Vision
+                            </div>
+                            <div className="w-1 h-1 rounded-full bg-pey-border"></div>
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text">
+                                <Cpu size={12} className="text-blue-400" /> Brain
                             </div>
                         </div>
                     </div>
 
-                    {/* Suggestions Chips - Delay 300ms */}
-                    <div className="w-full max-w-4xl px-4 opacity-0 animate-enter-medium delay-300">
-                        <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-2 overflow-x-auto scrollbar-hide pb-2 mask-linear">
+                    {/* Suggestions Chips - Fade Up + Delay 400ms */}
+                    <div className="w-full max-w-4xl px-4 opacity-0 animate-fade-up delay-400">
+                        <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-3 overflow-x-auto scrollbar-hide pb-4 mask-linear px-2">
                             {currentSuggestions.map((suggestion, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => handleSendMessage(suggestion)}
-                                    className="shrink-0 px-4 py-2 bg-pey-card/30 hover:bg-pey-accent/10 border border-pey-border hover:border-pey-accent rounded-full text-xs font-medium text-pey-muted hover:text-pey-text transition-all duration-300 whitespace-nowrap backdrop-blur-sm active:scale-95 active:border-pey-accent"
+                                    className="shrink-0 group px-5 py-2.5 bg-pey-card/50 hover:bg-pey-card border border-pey-border hover:border-pey-accent/40 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm hover:shadow-md active:scale-95"
                                 >
-                                    {suggestion}
+                                    <span className="text-xs font-medium text-pey-muted group-hover:text-pey-text transition-colors">
+                                        {suggestion}
+                                    </span>
                                 </button>
                             ))}
                         </div>
