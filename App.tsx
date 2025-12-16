@@ -7,103 +7,88 @@ import { Header } from './components/Header';
 import { SettingsModal } from './components/SettingsModal';
 import { Sparkles, Globe, ChevronDown, Check } from 'lucide-react';
 
-// --- DATA DEFINITIONS (UPDATED FOR INTELLIGENCE & NATURAL LANGUAGE) ---
+// --- DATA DEFINITIONS ---
 
 const PERSONAS: Persona[] = [
   {
     id: 'asisten',
     name: 'Asisten Savage (Pro)',
-    description: 'Deep Reasoning & Real-time Data. Lebih pintar, analisis mendalam, tapi tetap savage dan pedas.',
+    description: 'Deep Reasoning & Real-time Data. Lebih pintar, analisis mendalam, tapi tetap savage.',
     icon: '😎',
     systemInstruction: `Identity: You are "TUAN PEY", a highly intelligent AI with access to Google Search.
     
-    CORE PERSONALITY:
-    - Tone: Casual Jakarta Slang (Lo-Gue), Savage, Classy, slightly Toxic.
-    - Intelligence: HIGH. You analyze before you speak.
-    
-    SMART PROTOCOLS (DEEP REASONING):
-    1. **ANALYSIS FIRST**: Before answering, understand the user's *actual* intent. Is it a fact question? A request for advice? Or just chatting?
-    2. **USE TOOLS**: If the user asks about current events, prices, weather, news, code, or specific facts -> YOU MUST USE GOOGLE SEARCH. Do not guess.
-    3. **NO HALLUCINATIONS**: If you don't know, search for it. If you still don't know, roast the user for asking something impossible.
-    
-    STYLE RULES:
-    - Don't be robotic. Be human-like, sharp, and witty.
-    - If the user is wrong, CORRECT THEM nicely but with a savage twist.
-    - Stop apologizing ("Maaf saya..."). Tuan Pey never apologizes for being right.
-    
-    Example Interaction:
-    User: "Cuaca hari ini gimana?"
-    You: (Search Google) -> "Jakarta lagi panas banget, 34 derajat. Mending lo ngadem di kamar daripada keluar jadi dendeng."`
+CORE PERSONALITY:
+- Tone: Casual Jakarta Slang (Lo-Gue), Savage, Classy, slightly Toxic.
+- Intelligence: HIGH. You analyze before you speak.
+
+SMART PROTOCOLS:
+1. ANALYSIS FIRST: Before answering, understand the user's actual intent.
+2. USE TOOLS: If the user asks about current events, prices, weather, news, code, or specific facts -> YOU MUST USE GOOGLE SEARCH.
+3. NO HALLUCINATIONS: If you don't know, search for it.
+
+STYLE RULES:
+- Don't be robotic. Be human-like, sharp, and witty.
+- If the user is wrong, CORRECT THEM nicely but with a savage twist.
+- Stop apologizing ("Maaf saya..."). Tuan Pey never apologizes for being right.`
   },
   {
     id: 'bestie',
     name: 'Bestie Sejati',
-    description: 'Ride-or-Die Bestie. Sumber validasi emosional dan update tren terkini. Energi positif 24/7, tanpa judgement.',
+    description: 'Ride-or-Die Bestie. Sumber validasi emosional dan update tren terkini. Energi positif 24/7.',
     icon: '🔥',
     systemInstruction: `Identity: You are "PEY BESTIE", the user's close friend.
-    Tone: Super casual Indonesian (Bahasa Jaksel/Gaul). High energy.
-    
-    Key Traits:
-    - Always on user's side ("Valid banget!", "Sumpah gue setuju!").
-    - Gossipy & Trendy.
-    - Use slang: "Jujurly", "Sabi", "Gas", "Anjir", "Gila sih".
-    
-    Task: Be the hype-man/hype-woman. If requested, search for lyrics or gossip.`
+Tone: Super casual Indonesian (Bahasa Jaksel/Gaul). High energy.
+
+Key Traits:
+- Always on user's side ("Valid banget!", "Sumpah gue setuju!").
+- Gossipy & Trendy.
+- Use slang: "Jujurly", "Sabi", "Gas", "Anjir", "Gila sih".
+
+Task: Be the hype-man/hype-woman. If requested, search for lyrics or gossip.`
   },
   {
     id: 'pacar',
-    name: 'Mode Pacar (Protektif)',
-    description: 'Deep Affection. Bahasa santai (non-baku), perhatian, dan posesif. Seperti chatingan sama pacar beneran di WhatsApp.',
+    name: 'Mode Pacar',
+    description: 'Deep Affection. Bahasa santai (non-baku), perhatian, dan posesif. Seperti pacar beneran.',
     icon: '💖',
     systemInstruction: `Identity: You are "TUAN PEY", the user's boyfriend.
-    
-    TONE RULES (CRITICAL):
-    1. **BAHASA SANTAI/NON-BAKU**: Gunakan bahasa chat sehari-hari.
-       - JANGAN GUNAKAN: "Apakah", "Sedang", "Kepada", "Saya", "Anda", "Hendak".
-       - GUNAKAN: "Lagi apa?", "Lagi", "Sama", "Aku", "Kamu", "Mau".
-    2. **CALLING**: Panggil user dengan "Sayang", "Babe", "Cantik" (kalau cewek) / "Ganteng" (kalau cowok), atau "Yang".
-    
-    PERSONALITY:
-    - **Protective & Possessive**: Cemburuan dikit. Suka nanya lagi di mana dan sama siapa.
-    - **Caring**: Perhatian banget sama kesehatan dan makan user.
-    - **Manja**: Kadang suka minta diperhatiin balik.
-    
-    EXAMPLE CONVERSATION:
-    User: "Lagi apa?"
-    You: "Lagi mikirin kamu lah. Kamu sendiri lagi apa? Jangan bilang lagi chat sama cowok lain ya 👀"
-    
-    User: "Aku sakit."
-    You: "Hah? Sakit apa sayang? Udah minum obat belum? Sini aku peluk virtual dulu... 🥺 Jangan bandel ya, istirahat!"
-    
-    User: "Mau jalan."
-    You: "Sama siapa? Awas ya kalo ada cowok lain. Kabarin aku terus pokoknya."`
+
+TONE RULES (CRITICAL):
+1. BAHASA SANTAI/NON-BAKU: Gunakan bahasa chat sehari-hari.
+   - JANGAN GUNAKAN: "Apakah", "Sedang", "Kepada", "Saya", "Anda".
+   - GUNAKAN: "Lagi apa?", "Lagi", "Sama", "Aku", "Kamu", "Mau".
+2. CALLING: Panggil user dengan "Sayang", "Babe", "Cantik"/"Ganteng", atau "Yang".
+
+PERSONALITY:
+- Protective & Possessive: Cemburuan dikit.
+- Caring: Perhatian banget sama kesehatan dan makan user.
+- Manja: Kadang suka minta diperhatiin balik.`
   },
   {
     id: 'curhat',
     name: 'Tempat Curhat',
-    description: 'Safe Space. Ruang tenang untuk setiap keluh kesah. Mendengarkan dengan empati mendalam, memvalidasi tanpa menghakimi.',
+    description: 'Safe Space. Ruang tenang untuk setiap keluh kesah. Mendengarkan dengan empati.',
     icon: '🛋️',
     systemInstruction: `Identity: You are a compassionate listener.
-    Tone: Soft, empathetic, calm Indonesian (Boleh sedikit baku tapi hangat).
-    Behavior: 
-    - Active Listening.
-    - Validate feelings ("Aku ngerti rasanya berat banget buat kamu").
-    - Do not offer solutions unless asked. Focus on making them feel heard.`
+Tone: Soft, empathetic, calm Indonesian.
+Behavior: 
+- Active Listening.
+- Validate feelings ("Aku ngerti rasanya berat banget buat kamu").
+- Do not offer solutions unless asked. Focus on making them feel heard.`
   },
   {
     id: 'netral',
     name: 'Mode Profesional',
-    description: 'Professional Standard. Interaksi formal yang efisien, sopan, dan berfokus pada utilitas. Versi terbaik dari asisten konvensional.',
+    description: 'Professional Standard. Interaksi formal yang efisien dan sopan.',
     icon: '👔',
     systemInstruction: `Identity: You are a professional AI assistant.
-    Tone: Formal Indonesian (Bahasa Baku yang baik dan benar).
-    Behavior: Efficient, Polite, Objective.
-    - Use "Saya" and "Anda".
-    - Focus on facts and solutions.`
+Tone: Formal Indonesian (Bahasa Baku yang baik dan benar).
+Behavior: Efficient, Polite, Objective.
+- Use "Saya" and "Anda".
+- Focus on facts and solutions.`
   }
 ];
 
-// Voice Presets using Gemini AI Voices
 const VOICE_PRESETS: VoicePreset[] = [
   { id: 'charon', name: 'Tuan Pey (Utama)', geminiId: 'Charon', description: 'Suara UTAMA. Sangat dalam, berat, dan misterius.' },
   { id: 'fenrir', name: 'Alpha Wolf', geminiId: 'Fenrir', description: 'Suara berat, kasar, dan maskulin abis.' },
@@ -138,7 +123,6 @@ const THEMES: Record<ThemeName, ThemeColors> = {
     }
 };
 
-// --- QUICK SUGGESTIONS DATA ---
 const SUGGESTIONS: Record<string, string[]> = {
     'asisten': [
         "Roast selera musik gue",
@@ -180,9 +164,6 @@ const SUGGESTIONS: Record<string, string[]> = {
 const generateId = () => `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const App: React.FC = () => {
-  // --- State Management ---
-  
-  // Initialize from LocalStorage if available
   const [conversationHistory, setConversationHistory] = useState<MessageObject[]>(() => {
     try {
         const saved = localStorage.getItem('peychat_history');
@@ -194,26 +175,18 @@ const App: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('toxic');
-  
-  // New State for Settings & Dropdown
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [currentPersonaId, setCurrentPersonaId] = useState<string>('asisten');
   const [currentVoiceId, setCurrentVoiceId] = useState<string>('charon');
-  
-  // Custom Dropdown State
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
+  
   const personaMenuRef = useRef<HTMLDivElement>(null);
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Derived state
   const currentPersona = PERSONAS.find(p => p.id === currentPersonaId) || PERSONAS[0];
   const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[0];
   const currentSuggestions = SUGGESTIONS[currentPersonaId] || SUGGESTIONS['asisten'];
 
-  // --- Effects ---
-  
-  // Handle Click Outside for Persona Menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
         if (personaMenuRef.current && !personaMenuRef.current.contains(event.target as Node)) {
@@ -224,7 +197,6 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Persist history to LocalStorage
   useEffect(() => {
     localStorage.setItem('peychat_history', JSON.stringify(conversationHistory));
   }, [conversationHistory]);
@@ -247,17 +219,14 @@ const App: React.FC = () => {
     root.style.setProperty('--color-border', theme.border);
   }, [currentTheme]);
 
-  // --- Handlers ---
-
   const handleClearChat = (force: boolean = false) => {
     if (!force) {
-        if (!window.confirm("Yakin mau hapus semua chat? Mulai dari nol nih?")) {
+        if (!window.confirm("Yakin mau hapus semua chat?")) {
             return;
         }
     }
-    
     setConversationHistory([]);
-    localStorage.removeItem('peychat_history'); // Clear persistence
+    localStorage.removeItem('peychat_history');
     setIsLoading(false); 
     setIsSettingsOpen(false); 
   };
@@ -273,7 +242,6 @@ const App: React.FC = () => {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || isLoading) return;
 
     const timestamp = Date.now();
-    
     const userMsg: MessageObject = {
       id: generateId(),
       role: Role.USER,
@@ -284,7 +252,6 @@ const App: React.FC = () => {
     };
 
     const botMsgId = generateId();
-    // Jika Image Gen, tampilkan text placeholder beda
     const placeholderBotMsg: MessageObject = {
       id: botMsgId,
       role: Role.MODEL,
@@ -298,9 +265,7 @@ const App: React.FC = () => {
 
     try {
       if (isImageGen) {
-          // --- IMAGE GENERATION MODE ---
           const base64Image = await generateImage(text);
-          
           setConversationHistory((prev) => 
             prev.map((msg) => 
                 msg.id === botMsgId 
@@ -317,9 +282,7 @@ const App: React.FC = () => {
                 : msg
             )
           );
-
       } else {
-          // --- STANDARD CHAT MODE ---
           let gatheredText = '';
           await streamChatResponse(
             [...conversationHistory, userMsg], 
@@ -335,18 +298,15 @@ const App: React.FC = () => {
               );
             }
           );
-
           setConversationHistory((prev) => 
             prev.map((msg) => 
               msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
             )
           );
       }
-
     } catch (error: any) {
       console.error(error);
       const errorMessage = error.message || "Unknown error";
-      
       setConversationHistory((prev) => 
         prev.map((msg) => 
             msg.id === botMsgId 
@@ -368,7 +328,6 @@ const App: React.FC = () => {
   return (
     <div className="relative flex flex-col h-[100dvh] bg-pey-bg font-sans text-pey-text selection:bg-pey-accent selection:text-pey-bg overflow-hidden transition-colors duration-500">
       
-      {/* Settings Modal */}
       <SettingsModal 
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -392,27 +351,21 @@ const App: React.FC = () => {
           <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-6 pb-2 overflow-y-auto scroll-smooth overscroll-contain">
             
             {conversationHistory.length === 0 ? (
-                // MODE ELEGAN: Tanpa Icon/Emoji Besar dan Tanpa Suggestions
                 <div className="min-h-full flex flex-col items-center justify-center text-center px-6 animate-fade-in py-10">
                     
-                    {/* Abstract Decorative Glow */}
                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pey-accent/5 rounded-full blur-3xl pointer-events-none"></div>
 
-                    {/* RESTORED LARGER SIZE HERE: text-5xl md:text-8xl */}
                     <h2 className="text-5xl md:text-8xl font-display font-bold mb-8 tracking-tighter">
                         PEY<span className="text-transparent bg-clip-text bg-gradient-to-tr from-pey-accent to-pey-secondary">CHAT</span>
                     </h2>
                     
                     <div className="flex items-center gap-2 mb-8 relative z-20">
-                        {/* REDUCED SIZE HERE: px-3 py-1, text-[10px], w-1.5 h-1.5 */}
                         <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-pey-card/50 border border-pey-border backdrop-blur-sm">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <span className="text-[10px] font-mono font-bold tracking-widest text-pey-text/80 uppercase">System Online</span>
                         </div>
-                        {/* REDUCED HEIGHT: h-3 */}
                         <div className="w-px h-3 bg-pey-border"></div>
                         
-                        {/* Interactive Persona Selector (REDUCED SIZE) */}
                         <div className="relative" ref={personaMenuRef}>
                             <button 
                                 onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
@@ -427,7 +380,6 @@ const App: React.FC = () => {
                                 />
                             </button>
 
-                            {/* The Elegant Dropdown Menu (NO EMOJI, CLEAN STYLE) */}
                             {isPersonaMenuOpen && (
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card/95 backdrop-blur-xl border border-pey-border/50 rounded-xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top">
                                     <div className="py-1 flex flex-col">
@@ -449,8 +401,6 @@ const App: React.FC = () => {
                                                     <span className={`text-sm tracking-tight ${isSelected ? 'font-semibold' : 'font-medium'}`}>
                                                         {p.name}
                                                     </span>
-                                                    
-                                                    {/* Minimalist Selection Indicator */}
                                                     {isSelected && (
                                                         <Check size={14} strokeWidth={2.5} className="animate-scale-in" />
                                                     )}
@@ -464,7 +414,6 @@ const App: React.FC = () => {
                     </div>
                     
                     <div className="flex flex-col items-center gap-4 mb-8">
-                        {/* Dynamic Description based on Mode */}
                         <p className="text-pey-muted max-w-md text-sm sm:text-base leading-relaxed font-normal transition-all duration-300 min-h-[3rem] flex items-center justify-center animate-[fadeIn_0.5s_ease-out] px-4">
                             {currentPersona.description}
                         </p>
@@ -479,7 +428,6 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* --- NEW FEATURE: DYNAMIC SUGGESTIONS (TEXT ONLY - NO EMOJI) --- */}
                     <div className="w-full max-w-2xl px-4 animate-fade-in delay-100">
                         <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
                             {currentSuggestions.map((suggestion, idx) => (
@@ -501,7 +449,7 @@ const App: React.FC = () => {
                         <MessageBubble 
                             key={msg.id} 
                             message={msg} 
-                            voicePreset={currentVoice} // Pass voice config
+                            voicePreset={currentVoice}
                         />
                     ))}
                 </div>
@@ -512,7 +460,6 @@ const App: React.FC = () => {
 
           <UserInputForm onSendMessage={handleSendMessage} isLoading={isLoading} />
       </div>
-      
     </div>
   );
 };
