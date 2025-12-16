@@ -74,6 +74,15 @@
       ::-webkit-scrollbar-track { background: transparent; }
       ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 10px; }
       ::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+      /* Utility class untuk menyembunyikan scrollbar */
+      .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+      }
+      .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+      }
     </style>
   <script type="importmap">
 {

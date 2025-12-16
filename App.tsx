@@ -438,13 +438,13 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="w-full max-w-2xl px-4 animate-fade-in delay-100">
-                        <div className="flex flex-wrap justify-center gap-2 sm:gap-3">
+                    <div className="w-full max-w-4xl px-4 animate-fade-in delay-100">
+                        <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-2 overflow-x-auto scrollbar-hide pb-2 mask-linear">
                             {currentSuggestions.map((suggestion, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => handleSendMessage(suggestion)}
-                                    className="px-5 py-2.5 bg-pey-card/50 hover:bg-pey-accent/10 border border-pey-border hover:border-pey-accent rounded-full text-xs sm:text-sm text-pey-text/80 hover:text-pey-accent transition-all duration-300 active:scale-95 backdrop-blur-sm group font-medium"
+                                    className="shrink-0 px-4 py-2 bg-pey-card/30 hover:bg-pey-accent/10 border border-pey-border hover:border-pey-accent rounded-full text-xs font-medium text-pey-muted hover:text-pey-text transition-all duration-300 whitespace-nowrap backdrop-blur-sm active:scale-95"
                                 >
                                     {suggestion}
                                 </button>
