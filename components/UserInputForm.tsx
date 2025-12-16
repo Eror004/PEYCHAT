@@ -302,7 +302,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, isL
               ? "Lukis apa hari ini..."
               : isListening 
                 ? "Mendengarkan..." 
-                : "Ketik sesuatu..."
+                : "Tanya TUAN PEY..."
           }
           rows={1}
           className="flex-1 bg-transparent text-pey-text placeholder-pey-muted/50 px-1 py-3 focus:outline-none resize-none max-h-32 min-h-[46px] font-sans font-medium text-base leading-relaxed"
