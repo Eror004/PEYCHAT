@@ -35,6 +35,9 @@
               'scale-in': 'scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
               'schitts-reveal': 'schittsReveal 2.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
               'gradient-flow': 'gradientFlow 3s ease infinite',
+              'slide-in-left': 'slideInLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'slide-in-right': 'slideInRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'pop-in': 'popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
             },
             keyframes: {
               float: {
@@ -73,6 +76,18 @@
               gradientFlow: {
                 '0%, 100%': { 'background-position': '0% 50%' },
                 '50%': { 'background-position': '100% 50%' },
+              },
+              slideInLeft: {
+                '0%': { opacity: '0', transform: 'translateX(-50px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
+              },
+              slideInRight: {
+                '0%': { opacity: '0', transform: 'translateX(50px)' },
+                '100%': { opacity: '1', transform: 'translateX(0)' },
+              },
+              popIn: {
+                '0%': { opacity: '0', transform: 'scale(0.5)' },
+                '100%': { opacity: '1', transform: 'scale(1)' },
               }
             }
           },
@@ -112,6 +127,8 @@
       .delay-300 { animation-delay: 300ms; }
       .delay-400 { animation-delay: 400ms; }
       .delay-500 { animation-delay: 500ms; }
+      .delay-700 { animation-delay: 700ms; }
+      .delay-1000 { animation-delay: 1000ms; }
     </style>
   <script type="importmap">
 {

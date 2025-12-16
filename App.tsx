@@ -376,14 +376,16 @@ const App: React.FC = () => {
                         </h2>
                     </div>
                     
-                    {/* System Status & Persona - Fade Up + Delay 100ms */}
-                    <div className="flex items-center gap-3 mb-8 opacity-0 animate-fade-up delay-100">
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-card border border-pey-border shadow-sm">
+                    {/* System Status & Persona - Different Directions */}
+                    <div className="flex items-center gap-3 mb-8">
+                        {/* Status: Slide IN LEFT */}
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-card border border-pey-border shadow-sm opacity-0 animate-slide-in-left delay-500">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <span className="text-[10px] font-bold tracking-widest text-pey-muted uppercase">System Online</span>
                         </div>
                         
-                        <div className="relative" ref={personaMenuRef}>
+                        {/* Persona: Slide IN RIGHT */}
+                        <div className="relative opacity-0 animate-slide-in-right delay-500" ref={personaMenuRef}>
                             <button 
                                 onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
                                 className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
@@ -433,33 +435,35 @@ const App: React.FC = () => {
                     {/* Description - Typewriter Effect */}
                     <div className="flex flex-col items-center gap-6 mb-10 min-h-[50px]">
                         <p className="text-pey-muted text-sm md:text-base leading-relaxed font-medium max-w-lg transition-all duration-300">
-                           <Typewriter text={currentPersona.description} speed={25} delay={300} />
+                           <Typewriter text={currentPersona.description} speed={25} delay={700} />
                         </p>
                         
-                        {/* Capabilities Icons */}
-                        <div className="flex flex-wrap items-center justify-center gap-4 opacity-0 animate-fade-up delay-300">
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text">
+                        {/* Capabilities Icons - POP IN with Staggered Delays */}
+                        <div className="flex flex-wrap items-center justify-center gap-4">
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text opacity-0 animate-pop-in delay-700">
                                 <Globe size={12} className="text-pey-accent" /> Web
                             </div>
-                            <div className="w-1 h-1 rounded-full bg-pey-border"></div>
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text">
+                            <div className="w-1 h-1 rounded-full bg-pey-border opacity-0 animate-pop-in delay-[800ms]"></div>
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text opacity-0 animate-pop-in delay-[900ms]">
                                 <Sparkles size={12} className="text-pey-secondary" /> Vision
                             </div>
-                            <div className="w-1 h-1 rounded-full bg-pey-border"></div>
-                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text">
+                            <div className="w-1 h-1 rounded-full bg-pey-border opacity-0 animate-pop-in delay-[1000ms]"></div>
+                            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text opacity-0 animate-pop-in delay-[1100ms]">
                                 <Cpu size={12} className="text-blue-400" /> Brain
                             </div>
                         </div>
                     </div>
 
-                    {/* Suggestions Chips - Fade Up + Delay 400ms */}
-                    <div className="w-full max-w-4xl px-4 opacity-0 animate-fade-up delay-400">
+                    {/* Suggestions Chips - WAVE UP (Staggered Fade Up) */}
+                    <div className="w-full max-w-4xl px-4">
                         <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-3 overflow-x-auto scrollbar-hide pb-4 mask-linear px-2">
                             {currentSuggestions.map((suggestion, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => handleSendMessage(suggestion)}
-                                    className="shrink-0 group px-5 py-2.5 bg-pey-card/50 hover:bg-pey-card border border-pey-border hover:border-pey-accent/40 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm hover:shadow-md active:scale-95"
+                                    // Custom staggered animation style
+                                    style={{ animationDelay: `${1200 + (idx * 100)}ms` }}
+                                    className="shrink-0 group px-5 py-2.5 bg-pey-card/50 hover:bg-pey-card border border-pey-border hover:border-pey-accent/40 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm hover:shadow-md active:scale-95 opacity-0 animate-fade-up"
                                 >
                                     <span className="text-xs font-medium text-pey-muted group-hover:text-pey-text transition-colors">
                                         {suggestion}
