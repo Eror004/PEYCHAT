@@ -44,7 +44,8 @@ export default async function handler(req, res) {
     }
 
     // --- PREPARE DATA ---
-    const MAX_HISTORY = 10;
+    // HEMAT KUOTA: Kurangi history dari 10 ke 6 chat terakhir saja.
+    const MAX_HISTORY = 6;
     let processedHistory = history || [];
     
     // Pastikan history valid (Hapus pesan kosong/error)

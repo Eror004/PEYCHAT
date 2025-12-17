@@ -27,6 +27,46 @@ const AudioVisualizer = () => {
   );
 };
 
+// UTILITY: Client-Side Image Compression
+const compressImage = (file: File): Promise<{ data: string; mimeType: string; previewUrl: string }> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // Resize lebar ke max 800px (Hemat Kuota)
+        const scale = MAX_WIDTH / img.width;
+        
+        // Jika gambar kecil, jangan di-upscale
+        const width = scale < 1 ? MAX_WIDTH : img.width;
+        const height = scale < 1 ? img.height * scale : img.height;
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Kompresi ke JPEG kualitas 60% (Sangat Hemat Kuota)
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6); 
+            resolve({
+                data: compressedDataUrl.split(',')[1],
+                mimeType: 'image/jpeg',
+                previewUrl: compressedDataUrl
+            });
+        } else {
+            reject(new Error("Canvas context failed"));
+        }
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+};
+
 export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onStop, isLoading }) => {
   const [input, setInput] = useState('');
   const [attachment, setAttachment] = useState<Attachment | null>(null);
@@ -38,6 +78,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
   
   const [isImageMode, setIsImageMode] = useState(false);
   const [showTools, setShowTools] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -194,36 +235,55 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
       setShowTools(false);
   };
 
-  const processFile = (file: File, isRoast: boolean = false) => {
-    const MAX_SIZE_MB = 3;
+  const processFile = async (file: File, isRoast: boolean = false) => {
+    const MAX_SIZE_MB = 10; // Allow larger initial selection because we compress
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
       alert(`Waduh, gambarnya kegedean! Maksimal ${MAX_SIZE_MB}MB ya.`);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64String = (event.target?.result as string).split(',')[1];
-      const mimeType = file.type;
-      
-      let type: 'image' | 'video' | 'file' = 'file';
-      if (mimeType.startsWith('image/')) type = 'image';
-      else if (mimeType.startsWith('video/')) type = 'video';
+    const mimeType = file.type;
+    let type: 'image' | 'video' | 'file' = 'file';
+    
+    if (mimeType.startsWith('image/')) {
+        type = 'image';
+        setIsCompressing(true);
+        try {
+            // COMPRESS IMAGE HERE
+            const compressed = await compressImage(file);
+            setAttachment({
+                mimeType: compressed.mimeType,
+                data: compressed.data,
+                previewUrl: compressed.previewUrl,
+                type: 'image'
+            });
+        } catch (error) {
+            console.error("Compression failed:", error);
+            alert("Gagal memproses gambar. Coba gambar lain.");
+        } finally {
+            setIsCompressing(false);
+        }
+    } else if (mimeType.startsWith('video/')) {
+        // Video tidak dikompresi di client (terlalu berat), baca raw base64
+        type = 'video';
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64String = (event.target?.result as string).split(',')[1];
+            setAttachment({
+                mimeType,
+                data: base64String,
+                previewUrl: URL.createObjectURL(file),
+                type: 'video'
+            });
+        };
+        reader.readAsDataURL(file);
+    }
 
-      setAttachment({
-        mimeType,
-        data: base64String,
-        previewUrl: URL.createObjectURL(file),
-        type
-      });
-
-      if (isRoast) {
-          setInput("Roast vibe foto ini! Nilai outfit, background, & estetikanya sesuai persona lo! 💀🔥");
-          setTimeout(() => textareaRef.current?.focus(), 100);
-      }
-      setShowTools(false);
-    };
-    reader.readAsDataURL(file);
+    if (isRoast) {
+        setInput("Roast vibe foto ini! Nilai outfit, background, & estetikanya sesuai persona lo! 💀🔥");
+        setTimeout(() => textareaRef.current?.focus(), 100);
+    }
+    setShowTools(false);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,7 +333,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
         return;
     }
 
-    if ((!input.trim() && !attachment) || isLoading) return;
+    if ((!input.trim() && !attachment) || isLoading || isCompressing) return;
 
     onSendMessage(input.trim(), attachment ? [attachment] : undefined, isImageMode);
     setInput('');
@@ -297,7 +357,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
   };
 
   // Determine Right Button Icon
-  const canSend = (input.trim().length > 0 || attachment !== null);
+  const canSend = (input.trim().length > 0 || attachment !== null) && !isCompressing;
   
   return (
     <div className="w-full max-w-4xl mx-auto p-4 shrink-0">
@@ -314,26 +374,35 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
       )}
 
       {/* Preview Area (Compact) */}
-      {attachment && !isListening && (
+      {(attachment || isCompressing) && !isListening && (
         <div className="mb-2 ml-10 inline-flex relative group animate-[scaleIn_0.2s_ease-out] origin-bottom-left z-0">
           <div className="relative h-16 rounded-xl overflow-hidden border border-pey-border/50 shadow-lg bg-black/40 backdrop-blur-md">
-            {attachment.type === 'image' ? (
-              <img src={attachment.previewUrl} alt="Preview" className="h-full w-auto object-cover opacity-90" />
-            ) : attachment.type === 'video' ? (
-              <div className="h-full w-20 flex items-center justify-center text-pey-accent">
-                <FileVideo size={24} />
-              </div>
-            ) : (
-              <div className="h-full px-3 flex items-center justify-center text-pey-text text-xs">
-                 File
-              </div>
-            )}
-            <button 
-              onClick={removeAttachment}
-              className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-red-500 text-white rounded-full p-0.5 transition-colors"
-            >
-              <X size={10} />
-            </button>
+            {isCompressing ? (
+                 <div className="h-full px-4 flex items-center justify-center gap-2 text-xs text-pey-accent">
+                    <Sparkles size={14} className="animate-spin" />
+                    <span>Kompresi...</span>
+                 </div>
+            ) : attachment ? (
+                <>
+                    {attachment.type === 'image' ? (
+                    <img src={attachment.previewUrl} alt="Preview" className="h-full w-auto object-cover opacity-90" />
+                    ) : attachment.type === 'video' ? (
+                    <div className="h-full w-20 flex items-center justify-center text-pey-accent">
+                        <FileVideo size={24} />
+                    </div>
+                    ) : (
+                    <div className="h-full px-3 flex items-center justify-center text-pey-text text-xs">
+                        File
+                    </div>
+                    )}
+                    <button 
+                    onClick={removeAttachment}
+                    className="absolute top-0.5 right-0.5 bg-black/60 hover:bg-red-500 text-white rounded-full p-0.5 transition-colors"
+                    >
+                    <X size={10} />
+                    </button>
+                </>
+            ) : null}
           </div>
         </div>
       )}
@@ -418,7 +487,7 @@ export const UserInputForm: React.FC<UserInputFormProps> = ({ onSendMessage, onS
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className={`p-2.5 rounded-full transition-all ${isImageMode ? 'opacity-30 cursor-not-allowed' : 'text-pey-text hover:bg-pey-accent hover:text-pey-bg'}`}
-                    title="Upload Media"
+                    title="Upload Media (Hemat Kuota: Auto Compress)"
                 >
                     <Paperclip size={18} />
                 </button>
