@@ -97,15 +97,11 @@ export default async function handler(req, res) {
       try {
           const ai = new GoogleGenAI({ apiKey: currentKey });
           
-          // UPGRADE: SYSTEM INSTRUCTION REINFORCEMENT
-          // Kadang thinking model lupa instruksi sistem. Kita tempel lagi.
-          const finalSystemInstruction = systemInstruction + 
-            "\n[CRITICAL: ALWAYS STAY IN CHARACTER. DO NOT BREAK PERSONA. USE MARKDOWN FOR TABLES/CODE.]";
-
+          // UPGRADE: Google Search Grounding & Thinking Config
           const chat = ai.chats.create({
               model: 'gemini-2.5-flash',
               config: { 
-                systemInstruction: finalSystemInstruction,
+                systemInstruction: systemInstruction,
                 // THINKING CONFIG: Membuat model "berpikir" sebelum menjawab.
                 // Sangat berguna untuk matematika, logika, dan pertanyaan kompleks.
                 thinkingConfig: { thinkingBudget: 2048 }, 

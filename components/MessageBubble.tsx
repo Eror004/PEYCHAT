@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { MessageObject, Role, VoicePreset } from '../types';
-import { Bot, User, Copy, Check, Volume2, StopCircle, Loader2, Terminal, Cpu } from 'lucide-react';
+import { Bot, User, Copy, Check, Volume2, StopCircle, Loader2, Terminal } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: MessageObject;
@@ -27,7 +27,7 @@ const decodeAudio = async (base64Data: string): Promise<AudioBuffer> => {
     return audioBuffer;
 };
 
-// Component khusus untuk Code Block (macOS Style)
+// Component khusus untuk Code Block
 const CodeBlock = ({ language, children }: { language: string, children?: React.ReactNode }) => {
     const [copied, setCopied] = useState(false);
 
@@ -39,30 +39,26 @@ const CodeBlock = ({ language, children }: { language: string, children?: React.
     };
 
     return (
-        <div className="my-4 rounded-xl overflow-hidden border border-pey-border/60 bg-[#0d0d0d] shadow-2xl relative group">
-            {/* Code Header - Mac Style */}
-            <div className="flex items-center justify-between px-4 py-2 bg-[#151515] border-b border-pey-border/20">
+        <div className="my-3 rounded-xl overflow-hidden border border-pey-border/60 bg-[#0d0d0d] shadow-lg">
+            {/* Code Header */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#1a1a1a] border-b border-pey-border/30">
                 <div className="flex items-center gap-2">
-                    <div className="flex gap-1.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
-                    </div>
-                    <span className="ml-2 text-[10px] font-mono text-pey-muted uppercase tracking-wider opacity-60">
-                        {language || 'TERMINAL'}
+                    <Terminal size={12} className="text-pey-muted" />
+                    <span className="text-[10px] font-mono text-pey-muted uppercase tracking-wider">
+                        {language || 'CODE'}
                     </span>
                 </div>
                 <button 
                     onClick={handleCopyCode} 
-                    className="flex items-center gap-1.5 px-2 py-0.5 rounded hover:bg-white/10 text-[10px] text-pey-muted hover:text-white transition-colors"
+                    className="flex items-center gap-1.5 text-[10px] text-pey-muted hover:text-pey-accent transition-colors"
                 >
-                    {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+                    {copied ? <Check size={10} /> : <Copy size={10} />}
                     {copied ? 'Copied' : 'Copy'}
                 </button>
             </div>
             {/* Code Body */}
-            <div className="p-4 overflow-x-auto scrollbar-hide">
-                <code className="font-mono text-sm text-[#e0e0e0] whitespace-pre leading-relaxed">
+            <div className="p-3 overflow-x-auto scrollbar-hide">
+                <code className="font-mono text-sm text-[#e0e0e0] whitespace-pre">
                     {children}
                 </code>
             </div>
@@ -210,6 +206,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
                                     const {children, className, node, ...rest} = props
                                     const match = /language-(\w+)/.exec(className || '')
                                     // Jika code block (ada language atau multi-line), render component CodeBlock custom
+                                    // Jika inline code (tidak ada language dan satu baris), render default
                                     const isCodeBlock = match || (String(children).includes('\n'));
                                     
                                     return isCodeBlock ? (
@@ -220,14 +217,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
                                         <code {...rest} className={className}>
                                             {children}
                                         </code>
-                                    )
-                                },
-                                // Custom renderer for Tables to ensure horizontal scroll on mobile
-                                table(props) {
-                                    return (
-                                        <div className="overflow-x-auto my-4 border border-pey-border rounded-lg bg-black/20">
-                                            <table {...props} className="w-full text-left border-collapse" />
-                                        </div>
                                     )
                                 }
                             }}
@@ -277,21 +266,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, voicePres
                 </span>
             )}
 
-            {/* DEEP THINKING / PROCESSING ANIMATION V2 */}
+            {/* Cooking Indicator */}
             {message.isStreaming && !isUser && (
-                <div className="flex items-center gap-3 mt-3 ml-2 animate-pulse">
-                    <div className="relative flex items-center justify-center w-5 h-5">
-                         <div className="absolute inset-0 bg-pey-accent opacity-20 rounded-full animate-ping"></div>
-                         <Cpu size={16} className="text-pey-accent relative z-10 animate-[spin_3s_linear_infinite]" />
+                <div className="flex items-center gap-2 mt-3 ml-2 text-xs text-pey-accent font-bold font-mono animate-pulse">
+                    <div className="flex gap-1.5">
+                        <span className="w-1.5 h-1.5 bg-pey-accent rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
+                        <span className="w-1.5 h-1.5 bg-pey-accent rounded-full animate-bounce" style={{animationDelay: '150ms'}}></span>
+                        <span className="w-1.5 h-1.5 bg-pey-accent rounded-full animate-bounce" style={{animationDelay: '300ms'}}></span>
                     </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-bold text-pey-accent font-mono tracking-widest">
-                            PROCESSING
-                        </span>
-                        <div className="h-0.5 w-16 bg-pey-border mt-1 rounded-full overflow-hidden">
-                             <div className="h-full bg-pey-accent w-1/3 animate-[slideInLeft_1s_infinite]"></div>
-                        </div>
-                    </div>
+                    COOKING...
                 </div>
             )}
             </div>
