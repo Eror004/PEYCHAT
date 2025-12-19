@@ -8,9 +8,9 @@ export default async function handler(req, res) {
   try {
     const { prompt, image, customApiKey } = req.body;
 
-    let targetKeys = [];
+    let availableKeys = [];
     if (customApiKey && customApiKey.trim().length > 0) {
-        targetKeys = [customApiKey.trim()];
+        availableKeys = [customApiKey.trim()];
     } else {
         const rawKeys = [
             process.env.PEYY_KEY,
@@ -26,10 +26,10 @@ export default async function handler(req, res) {
             process.env.PEYY_KEY_10,
             process.env.API_KEY
         ];
-        targetKeys = rawKeys.filter(k => k && k.trim().length > 0).sort(() => 0.5 - Math.random());
+        availableKeys = rawKeys.filter(k => k && k.trim().length > 0).sort(() => 0.5 - Math.random());
     }
 
-    if (targetKeys.length === 0) {
+    if (availableKeys.length === 0) {
       return res.status(500).json({ error: "No API Keys found." });
     }
 
@@ -42,19 +42,17 @@ export default async function handler(req, res) {
     const parts = [];
     if (image) {
         parts.push({
-            inlineData: {
-                mimeType: 'image/jpeg', 
-                data: image
-            }
+            inlineData: { mimeType: 'image/jpeg', data: image }
         });
     }
     parts.push({ text: prompt });
 
-    for (const currentKey of targetKeys) {
+    // LOOP SEMUA KUNCI
+    for (let i = 0; i < availableKeys.length; i++) {
+        const currentKey = availableKeys[i];
         try {
             const ai = new GoogleGenAI({ apiKey: currentKey });
             
-            // Model Image Flash: Paling efisien
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
                 contents: { parts: parts },
@@ -71,17 +69,16 @@ export default async function handler(req, res) {
                     }
                 }
             }
-            if (success) break;
-
+            if (success) break; // Berhasil!
         } catch (err) {
             lastError = err;
-            if (customApiKey) throw new Error(err.message);
+            console.warn(`Image Gen Key ${i} failed, trying next...`);
             continue; 
         }
     }
 
     if (!success || !imageData) {
-        return res.status(503).json({ error: "Gagal membuat gambar. Server sibuk." });
+        return res.status(503).json({ error: "Gagal membuat gambar. Semua server sibuk." });
     }
 
     res.status(200).json({ image: imageData });

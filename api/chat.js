@@ -8,12 +8,14 @@ export default async function handler(req, res) {
   try {
     const { history, message, attachments, systemInstruction, customApiKey } = req.body;
 
-    // --- 1. KEY MANAGEMENT (THE 10 KEYS POOL) ---
-    // Kita manfaatkan 10 kunci gratisanmu secara bergantian (Load Balancing).
-    let targetKeys = [];
+    // --- 1. KUMPULKAN AMUNISI (KEYS) ---
+    let availableKeys = [];
+    
+    // Jika user punya key sendiri di settings, pakai itu HANYA satu-satunya.
     if (customApiKey && customApiKey.trim().length > 0) {
-        targetKeys = [customApiKey.trim()];
+        availableKeys = [customApiKey.trim()];
     } else {
+        // Kumpulkan semua kunci dari environment
         const rawKeys = [
           process.env.PEYY_KEY,
           process.env.PEYY_KEY_1,
@@ -28,18 +30,23 @@ export default async function handler(req, res) {
           process.env.PEYY_KEY_10,
           process.env.API_KEY
         ];
-        // Acak urutan agar beban terbagi rata.
-        targetKeys = rawKeys.filter(k => k && k.trim().length > 0).sort(() => 0.5 - Math.random());
+        
+        // Bersihkan yang kosong/undefined
+        availableKeys = rawKeys.filter(k => k && k.trim().length > 0);
+        
+        // Acak urutan agar tidak selalu Kunci 1 yang kena limit duluan (Load Balancing)
+        availableKeys = availableKeys.sort(() => 0.5 - Math.random());
     }
 
-    if (targetKeys.length === 0) {
-      return res.status(500).json({ error: "Server Error: Tidak ada API Key yang tersedia." });
+    if (availableKeys.length === 0) {
+      console.error("CRITICAL: Tidak ada API KEY yang ditemukan di Environment Variables.");
+      return res.status(500).json({ error: "Server Error: Konfigurasi API Key kosong. Hubungi admin." });
     }
 
-    // --- 2. DATA PREPARATION ---
+    // --- 2. PERSIAPAN DATA ---
     const processedHistory = (history || [])
         .filter(h => h.text && h.text.trim().length > 0)
-        .slice(-10) // Kita bisa simpan sedikit lebih banyak history karena model Flash context-nya besar
+        .slice(-10) 
         .map(h => ({
             role: h.role === 'user' ? 'user' : 'model',
             parts: [{ text: h.text }]
@@ -57,73 +64,72 @@ export default async function handler(req, res) {
        return res.status(400).json({ error: "Pesan kosong." });
     }
 
-    // --- 3. EKSEKUSI: SMART FLEET STRATEGY ---
-    // Target: Hemat, Cepat, Tapi Pintar.
+    // --- 3. EKSEKUSI: MACHINE GUN LOOP ---
     let resultStream = null;
     let lastError = null;
+    let usedKeyIndex = -1;
 
-    for (let i = 0; i < targetKeys.length; i++) {
-        const key = targetKeys[i];
-
+    // Loop mencoba setiap kunci sampai ada yang berhasil
+    for (let i = 0; i < availableKeys.length; i++) {
+        const currentKey = availableKeys[i];
+        
         try {
-            const ai = new GoogleGenAI({ apiKey: key });
+            // Coba inisialisasi dengan kunci saat ini
+            const ai = new GoogleGenAI({ apiKey: currentKey });
             
+            // Gunakan Flash + Thinking (Hemat tapi Pintar)
             const chat = ai.chats.create({
-                // Pilihan Model: Gemini 3 Flash Preview
-                // Alasan: Paling imbang antara kecepatan, kecerdasan, dan efisiensi kuota gratis.
                 model: 'gemini-3-flash-preview', 
-                
                 config: {
                     systemInstruction: systemInstruction,
-                    
-                    // THINKING CONFIG (RAHASIA KEPINTARAN)
-                    // Budget 1024: Cukup untuk mikir logika coding/matematika,
-                    // tapi tidak terlalu lama sampai bikin user nunggu ("Responsif").
-                    // Ini jauh lebih hemat daripada mode Pro.
                     thinkingConfig: { thinkingBudget: 1024 }, 
-                    
                     tools: [{ googleSearch: {} }],
                 },
                 history: processedHistory,
             });
 
+            // Coba kirim pesan
             resultStream = await chat.sendMessageStream({ message: contents });
             
-            // Jika berhasil konek dan dapat stream, stop loop kunci.
-            break; 
+            // JIKA SAMPAI SINI, BERARTI BERHASIL!
+            usedKeyIndex = i;
+            console.log(`[Success] Request berhasil menggunakan Key index ke-${i} (dari total ${availableKeys.length} keys).`);
+            break; // Keluar dari loop, kita sudah dapat streamnya.
 
         } catch (err) {
-            const errMsg = err.message || "";
+            // JIKA GAGAL, LOG DAN LANJUT KE KUNCI BERIKUTNYA
+            const errMsg = err.message || "Unknown error";
             lastError = err;
+            console.warn(`[Fail] Key index ke-${i} gagal. Reason: ${errMsg.slice(0, 100)}...`);
 
-            // Log error untuk debug (server side logs)
-            console.warn(`Key ke-${i+1} gagal: ${errMsg.slice(0, 100)}...`);
-
-            // Jika error karena User (misal gambar tidak valid), jangan retry kunci lain, langsung lempar error.
+            // Pengecualian: Jika errornya adalah "INVALID_ARGUMENT" (biasanya salah input/gambar), 
+            // ganti kunci pun percuma. Stop di sini.
             if (errMsg.includes('INVALID_ARGUMENT') || errMsg.includes('400')) {
-                 return res.status(400).json({ error: "Permintaan ditolak Google (Cek input/gambar)." });
+                 return res.status(400).json({ error: "Google menolak request ini (Cek input/gambar kamu)." });
             }
 
-            // Jika error Limit (429) atau Server (503), LANJUT KE KUNCI BERIKUTNYA.
+            // Lanjut ke iterasi loop berikutnya (Kunci selanjutnya)...
             continue;
         }
     }
 
-    // --- 4. JIKA 10 KUNCI KO ---
+    // --- 4. JIKA SEMUA PELURU HABIS ---
     if (!resultStream) {
-        console.error("ALL 10 KEYS FAILED.");
+        console.error("FATAL: Semua API Key gagal digunakan.");
         let cleanMsg = "Server sibuk.";
         const errTxt = lastError?.message || "";
         
         if (errTxt.includes('429') || errTxt.includes('quota')) {
-            cleanMsg = "⚠️ Semua 10 Akun Sedang Sibuk! Mohon tunggu 1 menit agar kuota reset.";
+            cleanMsg = `⚠️ LIMIT PARAH. ${availableKeys.length} akun Google semuanya habis kuota. Coba 2 menit lagi.`;
+        } else if (errTxt.includes('API_KEY')) {
+            cleanMsg = "⚠️ Masalah Konfigurasi Key. Pastikan Env Var diisi.";
         } else {
-            cleanMsg = `Gagal menghubungkan: ${errTxt.slice(0, 80)}`;
+            cleanMsg = `Gagal total: ${errTxt.slice(0, 80)}`;
         }
         return res.status(503).json({ error: cleanMsg });
     }
 
-    // --- 5. STREAMING OUTPUT ---
+    // --- 5. STREAMING RESPONSE ---
     res.writeHead(200, {
       'Content-Type': 'text/plain; charset=utf-8',
       'Transfer-Encoding': 'chunked',
@@ -131,30 +137,35 @@ export default async function handler(req, res) {
 
     const groundingSources = new Map();
 
-    for await (const chunk of resultStream) {
-      const gMeta = chunk.candidates?.[0]?.groundingMetadata;
-      if (gMeta?.groundingChunks) {
-        gMeta.groundingChunks.forEach(c => {
-            if (c.web) groundingSources.set(c.web.uri, c.web.title || c.web.uri);
-        });
-      }
+    try {
+        for await (const chunk of resultStream) {
+          const gMeta = chunk.candidates?.[0]?.groundingMetadata;
+          if (gMeta?.groundingChunks) {
+            gMeta.groundingChunks.forEach(c => {
+                if (c.web) groundingSources.set(c.web.uri, c.web.title || c.web.uri);
+            });
+          }
 
-      if (chunk.text) {
-        res.write(chunk.text);
-      }
-    }
+          if (chunk.text) {
+            res.write(chunk.text);
+          }
+        }
 
-    if (groundingSources.size > 0) {
-        res.write("\n\n---\n**📚 Sumber:**\n");
-        groundingSources.forEach((title, uri) => {
-            res.write(`- [${title}](${uri})\n`);
-        });
+        if (groundingSources.size > 0) {
+            res.write("\n\n---\n**📚 Sumber:**\n");
+            groundingSources.forEach((title, uri) => {
+                res.write(`- [${title}](${uri})\n`);
+            });
+        }
+    } catch (streamError) {
+        console.error("Error saat streaming (koneksi putus di tengah jalan):", streamError);
+        res.write("\n\n[Koneksi terputus...]");
     }
 
     res.end();
 
   } catch (globalError) {
-    console.error("Handler Crash:", globalError);
+    console.error("Handler Crash Total:", globalError);
     if (!res.headersSent) {
         res.status(500).json({ error: globalError.message });
     }
