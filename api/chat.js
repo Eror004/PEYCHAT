@@ -44,8 +44,7 @@ export default async function handler(req, res) {
     }
 
     // --- PREPARE DATA ---
-    // HEMAT KUOTA: Kurangi history dari 10 ke 6 chat terakhir saja.
-    const MAX_HISTORY = 6;
+    const MAX_HISTORY = 10;
     let processedHistory = history || [];
     
     // Pastikan history valid (Hapus pesan kosong/error)
@@ -99,7 +98,7 @@ export default async function handler(req, res) {
           
           // UPGRADE: Google Search Grounding & Thinking Config
           const chat = ai.chats.create({
-              model: 'gemini-2.5-flash',
+              model: 'gemini-3-flash-preview',
               config: { 
                 systemInstruction: systemInstruction,
                 // THINKING CONFIG: Membuat model "berpikir" sebelum menjawab.
