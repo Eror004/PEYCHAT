@@ -66,9 +66,10 @@ export default async function handler(req, res) {
         const key = targetKeys[i];
         
         // LOGIKA PINTAR vs HEMAT:
-        // Percobaan pertama (i==0) kita coba pakai Thinking Mode (Paling Pinter tapi boros).
-        // Jika gagal/limit, percobaan berikutnya kita matikan Thinking Mode (Tetap Pinter, tapi lebih hemat token).
-        // Ini memastikan chat TETAP MASUK meskipun kuota sedang "sekarat".
+        // Percobaan pertama (i==0) kita coba pakai Thinking Mode dengan Budget TINGGI (2048).
+        // Ini menjawab "Tapi tetep pinter?" -> YA, makin pinter.
+        // Jika gagal/limit, percobaan berikutnya kita matikan Thinking Mode (Hemat Token).
+        // Ini menjawab "Apa akan berfungsi lagi?" -> YA, karena ada mode hemat yang anti-limit.
         const useDeepThinking = (i === 0); 
 
         try {
@@ -82,8 +83,8 @@ export default async function handler(req, res) {
 
             if (useDeepThinking) {
                  // Mode "Profesor Merenung" (Thinking Budget Aktif)
-                 // Bagus untuk logika berat, tapi boros token & rawan limit
-                 chatConfig.thinkingConfig = { thinkingBudget: 1024 };
+                 // Kita naikkan budget jadi 2048 agar jawaban lebih mendalam & cerdas.
+                 chatConfig.thinkingConfig = { thinkingBudget: 2048 };
             } else {
                  // Mode "Profesor Spontan" (Thinking Budget 0)
                  // Tetap model gemini-3-flash (Sangat Pintar), cuma gak pake 'mikir lama'.
@@ -92,7 +93,7 @@ export default async function handler(req, res) {
             }
 
             const chat = ai.chats.create({
-                model: 'gemini-3-flash-preview', // Model terbaru yang pintar & cepat
+                model: 'gemini-3-flash-preview', 
                 config: chatConfig,
                 history: processedHistory,
             });
@@ -104,23 +105,22 @@ export default async function handler(req, res) {
             lastError = err;
             const errMsg = err.message || "";
 
-            // Jika User pakai Custom Key sendiri dan error, jangan ganti ke akun server (biar dia tau key-nya bermasalah)
+            // Jika User pakai Custom Key sendiri dan error, jangan ganti ke akun server
             if (customApiKey) throw new Error(`Custom Key Error: ${errMsg}`);
 
-            // Cek apakah error karena Limit / Server Penuh
+            // Cek apakah error karena Limit / Server Penuh / Overloaded
             const isLimit = errMsg.includes('429') || errMsg.includes('503') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED');
 
             if (isLimit) {
-                // Info di log server (tidak muncul di user)
-                console.warn(`⚠️ Key ke-${i+1} limit (${useDeepThinking ? 'Mode Berat' : 'Mode Ringan'}). Switch ke backup...`);
+                console.warn(`⚠️ Key ke-${i+1} limit/sibuk (${useDeepThinking ? 'Mode Pintar' : 'Mode Hemat'}). Switch ke backup...`);
                 continue; // Coba key berikutnya
             } else {
-                // Error lain (misal input salah), log dan coba key lain siapa tau hoki
                 console.error(`❌ Key ke-${i+1} error:`, errMsg);
+                // Jika error 400 (Bad Request), biasanya karena input user salah
                 if (errMsg.includes('INVALID_ARGUMENT') || errMsg.includes('400')) {
-                    // Kalau error request user (misal gambar corrupt), stop aja
-                     return res.status(400).json({ error: "Request ditolak Google. Coba refresh atau kirim ulang." });
+                     return res.status(400).json({ error: "Request ditolak Google. Coba kurangi panjang chat atau reset." });
                 }
+                // Error lain tetap kita coba key berikutnya, siapa tau ini cuma glitch di 1 key
                 continue;
             }
         }
@@ -133,7 +133,7 @@ export default async function handler(req, res) {
         const errTxt = lastError?.message || "";
         
         if (errTxt.includes('429') || errTxt.includes('quota')) {
-            cleanMsg = "⚠️ SEMUA AKUN LIMIT (10/10). Server lagi rame banget. Tunggu 1 menit ya atau pakai API Key sendiri di Settings.";
+            cleanMsg = "⚠️ SEMUA AKUN LIMIT (10/10). Sistem sedang sangat ramai. Silakan tunggu 1 menit atau gunakan API Key sendiri di menu Settings.";
         } else {
             cleanMsg = `Gagal: ${errTxt.slice(0, 100)}`;
         }
