@@ -138,9 +138,15 @@ export default async function handler(req, res) {
     }
 
     if (!success) {
-      const errorMsg = lastError?.message || "Server sibuk.";
+      let errorMsg = lastError?.message || "Server sibuk.";
+      
+      // Deteksi error kuota habis (429) untuk pesan yang lebih ramah
+      if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+          errorMsg = "⚠️ KUOTA SERVER HABIS. Sistem sedang ramai. Agar lancar, silakan masukkan API Key Google Gemini milikmu sendiri di menu Settings (Gratis).";
+      }
+
       console.error("All keys failed. Last error:", lastError);
-      return res.status(503).json({ error: `Gagal: ${errorMsg}` });
+      return res.status(503).json({ error: errorMsg });
     }
 
     // --- STREAM RESPONSE ---

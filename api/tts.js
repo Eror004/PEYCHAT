@@ -82,7 +82,11 @@ export default async function handler(req, res) {
     }
 
     if (!success || !audioData) {
-        return res.status(503).json({ error: "Gagal generate suara: " + (lastError?.message || "Unknown error") });
+        let errorMsg = lastError?.message || "Unknown error";
+        if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+            errorMsg = "⚠️ Kuota Server Habis. Gunakan Custom API Key di Settings.";
+        }
+        return res.status(503).json({ error: errorMsg });
     }
 
     res.status(200).json({ audio: audioData });

@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { prompt, customApiKey } = req.body;
+    const { prompt, image, customApiKey } = req.body;
 
     let targetKeys = [];
     if (customApiKey && customApiKey.trim().length > 0) {
@@ -41,6 +41,21 @@ export default async function handler(req, res) {
     let imageData = null;
     let lastError = null;
 
+    // Construct parts
+    const parts = [];
+    
+    // Jika ada gambar source, masukkan sebagai inlineData (Image Editing Mode)
+    if (image) {
+        parts.push({
+            inlineData: {
+                mimeType: 'image/jpeg', 
+                data: image
+            }
+        });
+    }
+    
+    parts.push({ text: prompt });
+
     for (const currentKey of targetKeys) {
         try {
             const ai = new GoogleGenAI({ apiKey: currentKey });
@@ -48,14 +63,14 @@ export default async function handler(req, res) {
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
                 contents: {
-                    parts: [{ text: prompt }]
+                    parts: parts
                 },
                 config: {},
             });
 
-            const parts = response.candidates?.[0]?.content?.parts;
-            if (parts) {
-                for (const part of parts) {
+            const resParts = response.candidates?.[0]?.content?.parts;
+            if (resParts) {
+                for (const part of resParts) {
                     if (part.inlineData) {
                         imageData = part.inlineData.data;
                         success = true;
@@ -74,7 +89,11 @@ export default async function handler(req, res) {
     }
 
     if (!success || !imageData) {
-        return res.status(503).json({ error: "Gagal membuat gambar: " + (lastError?.message || "Model error") });
+        let errorMsg = lastError?.message || "Model error";
+        if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
+            errorMsg = "⚠️ Kuota Server Habis. Gunakan Custom API Key di Settings.";
+        }
+        return res.status(503).json({ error: errorMsg });
     }
 
     res.status(200).json({ image: imageData });
