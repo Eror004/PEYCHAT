@@ -1,5 +1,5 @@
 import React from 'react';
-import { RotateCcw, Palette, Settings } from 'lucide-react';
+import { RotateCcw, Palette, Settings, Volume2, VolumeX } from 'lucide-react';
 import { ThemeName } from '../types';
 
 interface HeaderProps {
@@ -7,9 +7,18 @@ interface HeaderProps {
     currentTheme: ThemeName;
     onSwitchTheme: () => void;
     onOpenSettings: () => void;
+    isMuted: boolean;
+    onToggleMute: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onReset, currentTheme, onSwitchTheme, onOpenSettings }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+    onReset, 
+    currentTheme, 
+    onSwitchTheme, 
+    onOpenSettings,
+    isMuted,
+    onToggleMute
+}) => {
   return (
     // Changed from sticky to relative/block since it's now outside the scrollable area
     <header className="w-full backdrop-blur-xl bg-pey-bg/80 border-b border-pey-border transition-colors duration-500 supports-[backdrop-filter]:bg-pey-bg/60 shrink-0">
@@ -28,6 +37,14 @@ export const Header: React.FC<HeaderProps> = ({ onReset, currentTheme, onSwitchT
         </div>
         
         <div className="flex items-center gap-2">
+             <button 
+                onClick={onToggleMute}
+                className={`flex items-center justify-center w-11 h-11 rounded-full bg-pey-card border border-pey-border transition-all duration-300 ${isMuted ? 'text-red-500 border-red-500/30' : 'text-pey-muted hover:text-pey-accent hover:border-pey-accent'}`}
+                title={isMuted ? "Unmute Sound" : "Mute Sound"}
+            >
+                {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+
              <button 
                 onClick={onOpenSettings}
                 className="group flex items-center justify-center w-11 h-11 rounded-full bg-pey-card border border-pey-border hover:border-pey-accent text-pey-muted hover:text-pey-text transition-all duration-300"

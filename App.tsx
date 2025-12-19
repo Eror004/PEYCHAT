@@ -5,8 +5,9 @@ import { MessageBubble } from './components/MessageBubble';
 import { UserInputForm } from './components/UserInputForm';
 import { Header } from './components/Header';
 import { SettingsModal } from './components/SettingsModal';
-import { Typewriter } from './components/Typewriter'; // Import Typewriter
-import { Sparkles, Globe, ChevronDown, Check, Terminal, Cpu } from 'lucide-react';
+import { Typewriter } from './components/Typewriter'; 
+import { Sparkles, Globe, ChevronDown, Check, Terminal, Cpu, BrainCircuit, Eye } from 'lucide-react';
+import { playSound, setMuted } from './utils/sound'; // Import Sound Utils
 
 // --- DATA DEFINITIONS ---
 
@@ -205,22 +206,27 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentTheme, setCurrentTheme] = useState<ThemeName>('toxic');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [currentPersonaId, setCurrentPersonaId] = useState<string>('asisten'); // DEFAULT KEMBALI KE ASISTEN (SAVAGE)
+  const [currentPersonaId, setCurrentPersonaId] = useState<string>('asisten'); 
   const [currentVoiceId, setCurrentVoiceId] = useState<string>('charon');
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
-  
-  // State untuk menyimpan API Key Custom User
   const [userApiKey, setUserApiKey] = useState<string>('');
+  
+  // Sound Mute State
+  const [isMutedState, setIsMutedState] = useState(() => localStorage.getItem('pey_muted') === 'true');
   
   const personaMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Ref untuk AbortController (Stop Generation)
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const currentPersona = PERSONAS.find(p => p.id === currentPersonaId) || PERSONAS[0];
   const currentVoice = VOICE_PRESETS.find(v => v.id === currentVoiceId) || VOICE_PRESETS[0];
   const currentSuggestions = SUGGESTIONS[currentPersonaId] || SUGGESTIONS['asisten'];
+
+  // Initialize and persist sound settings
+  useEffect(() => {
+    setMuted(isMutedState);
+    localStorage.setItem('pey_muted', String(isMutedState));
+  }, [isMutedState]);
 
   useEffect(() => {
       const storedKey = localStorage.getItem('user_gemini_key');
@@ -244,7 +250,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const root = document.documentElement;
     const theme = THEMES[currentTheme];
-    
     root.style.setProperty('--color-bg', theme.bg);
     root.style.setProperty('--color-card', theme.card);
     root.style.setProperty('--color-text', theme.text);
@@ -266,26 +271,27 @@ const App: React.FC = () => {
             return;
         }
     }
+    playSound('ui');
     setConversationHistory([]);
     setIsLoading(false); 
     setIsSettingsOpen(false);
   };
 
   const handleSwitchTheme = () => {
+      playSound('ui');
       const themes: ThemeName[] = ['toxic', 'lovecore', 'cyber', 'angel', 'pinky', 'clean'];
       const currentIndex = themes.indexOf(currentTheme);
       const nextIndex = (currentIndex + 1) % themes.length;
       setCurrentTheme(themes[nextIndex]);
   };
 
-  // STOP GENERATION FUNCTION
   const handleStopGeneration = () => {
+      playSound('ui');
       if (abortControllerRef.current) {
           abortControllerRef.current.abort();
           abortControllerRef.current = null;
           setIsLoading(false);
           
-          // Set pesan terakhir agar tidak loading lagi
           setConversationHistory((prev) => {
               const lastMsg = prev[prev.length - 1];
               if (lastMsg && lastMsg.role === Role.MODEL && lastMsg.isStreaming) {
@@ -301,6 +307,8 @@ const App: React.FC = () => {
 
   const handleSendMessage = async (text: string, attachments?: Attachment[], isImageGen?: boolean) => {
     if ((!text.trim() && (!attachments || attachments.length === 0)) || isLoading) return;
+
+    playSound('send'); // Sound Effect
 
     const timestamp = Date.now();
     const userMsg: MessageObject = {
@@ -324,13 +332,11 @@ const App: React.FC = () => {
     setConversationHistory((prev) => [...prev, userMsg, placeholderBotMsg]);
     setIsLoading(true);
 
-    // Create new AbortController
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
 
     try {
       if (isImageGen) {
-          // Pass userApiKey (if exists) to image generation
           const base64Image = await generateImage(text, userApiKey);
           setConversationHistory((prev) => 
             prev.map((msg) => 
@@ -348,15 +354,20 @@ const App: React.FC = () => {
                 : msg
             )
           );
+          playSound('complete'); // Sound Effect
       } else {
           let gatheredText = '';
-          // Pass userApiKey (if exists) to chat stream
+          let isFirstChunk = true;
           await streamChatResponse(
             [...conversationHistory, userMsg], 
             text, 
             attachments, 
             currentPersona.systemInstruction, 
             (chunkText) => {
+              if (isFirstChunk) {
+                playSound('receive'); // Sound Effect on first byte
+                isFirstChunk = false;
+              }
               gatheredText += chunkText;
               setConversationHistory((prev) => 
                 prev.map((msg) => 
@@ -365,17 +376,18 @@ const App: React.FC = () => {
               );
             },
             userApiKey,
-            abortController.signal // Pass signal here
+            abortController.signal
           );
           setConversationHistory((prev) => 
             prev.map((msg) => 
               msg.id === botMsgId ? { ...msg, isStreaming: false } : msg
             )
           );
+          playSound('complete'); // Sound Effect
       }
     } catch (error: any) {
-      // Jika error karena abort, jangan tampilkan error message
       if (error.name !== 'AbortError') {
+          playSound('error'); // Sound Effect
           console.error(error);
           const errorMessage = error.message || "Unknown error";
           setConversationHistory((prev) => 
@@ -403,13 +415,13 @@ const App: React.FC = () => {
       
       <SettingsModal 
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => { playSound('ui'); setIsSettingsOpen(false); }}
         personas={PERSONAS}
         currentPersonaId={currentPersonaId}
-        onSelectPersona={setCurrentPersonaId}
+        onSelectPersona={(id) => { playSound('ui'); setCurrentPersonaId(id); }}
         voicePresets={VOICE_PRESETS}
         currentVoiceId={currentVoiceId}
-        onSelectVoice={setCurrentVoiceId}
+        onSelectVoice={(id) => { playSound('ui'); setCurrentVoiceId(id); }}
         onReset={() => handleClearChat(true)}
         userApiKey={userApiKey}
         onUpdateApiKey={handleUpdateApiKey}
@@ -420,35 +432,31 @@ const App: React.FC = () => {
             onReset={() => handleClearChat(false)} 
             currentTheme={currentTheme}
             onSwitchTheme={handleSwitchTheme}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={() => { playSound('ui'); setIsSettingsOpen(true); }}
+            isMuted={isMutedState}
+            onToggleMute={() => setIsMutedState(!isMutedState)}
           />
 
           <main className="flex-1 w-full max-w-4xl mx-auto px-4 pt-6 pb-2 overflow-y-auto scroll-smooth overscroll-contain relative">
             
             {conversationHistory.length === 0 ? (
-                // --- LANDING PAGE (CLEAN & AESTHETIC REVEAL) ---
                 <div key={currentPersonaId} className="min-h-full flex flex-col items-center justify-center text-center px-6 py-10 relative">
                     
-                    {/* Main Title - SCHITT'S CREEK STYLE REVEAL + FLOATING & GRADIENT FLOW */}
                     <div className="relative mb-8 animate-float">
                         <h2 className="text-6xl md:text-8xl font-display font-bold text-pey-text tracking-normal opacity-0 animate-schitts-reveal">
                             PEY<span className="text-transparent bg-clip-text bg-gradient-to-r from-pey-accent to-pey-secondary bg-[length:200%_auto] animate-gradient-flow">CHAT</span>
                         </h2>
                     </div>
                     
-                    {/* System Status & Persona - Different Directions */}
                     <div className="flex items-center gap-3 mb-8">
-                        {/* Status: Slide IN LEFT */}
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-pey-card border border-pey-border shadow-sm opacity-0 animate-slide-in-left delay-500">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
                             <span className="text-[10px] font-bold tracking-widest text-pey-muted uppercase">System Online</span>
                         </div>
                         
-                        {/* Persona: Slide IN RIGHT */}
-                        {/* Fix: Added z-50 to ensure dropdown appears above capabilities animation */}
                         <div className="relative opacity-0 animate-slide-in-right delay-500 z-50" ref={personaMenuRef}>
                             <button 
-                                onClick={() => setIsPersonaMenuOpen(!isPersonaMenuOpen)}
+                                onClick={() => { playSound('ui'); setIsPersonaMenuOpen(!isPersonaMenuOpen); }}
                                 className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-pey-accent/10 hover:bg-pey-accent/20 transition-all cursor-pointer border border-pey-accent/20 hover:border-pey-accent/40 group"
                             >
                                 <span className="text-[11px] font-bold tracking-widest text-pey-accent uppercase truncate max-w-[150px] sm:max-w-none">
@@ -461,7 +469,6 @@ const App: React.FC = () => {
                             </button>
 
                             {isPersonaMenuOpen && (
-                                // FIX: Changed bg to solid pey-card to prevent transparency overlap issues
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 min-w-[240px] bg-pey-card border border-pey-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-scale-in origin-top ring-1 ring-black/20">
                                     <div className="py-1 flex flex-col">
                                         {PERSONAS.map((p) => {
@@ -470,6 +477,7 @@ const App: React.FC = () => {
                                                 <button
                                                     key={p.id}
                                                     onClick={() => {
+                                                        playSound('ui');
                                                         setCurrentPersonaId(p.id);
                                                         setIsPersonaMenuOpen(false);
                                                     }}
@@ -494,13 +502,11 @@ const App: React.FC = () => {
                         </div>
                     </div>
                     
-                    {/* Description - Typewriter Effect */}
                     <div className="flex flex-col items-center gap-6 mb-10 min-h-[50px]">
                         <p className="text-pey-muted text-sm md:text-base leading-relaxed font-medium max-w-lg transition-all duration-300">
                            <Typewriter text={currentPersona.description} speed={25} delay={700} />
                         </p>
                         
-                        {/* Capabilities Icons - POP IN with Staggered Delays */}
                         <div className="flex flex-wrap items-center justify-center gap-4">
                             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-pey-text opacity-0 animate-pop-in delay-700">
                                 <Globe size={12} className="text-pey-accent" /> Web
@@ -516,14 +522,12 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Suggestions Chips - WAVE UP (Staggered Fade Up) */}
                     <div className="w-full max-w-4xl px-4">
                         <div className="flex flex-nowrap items-center justify-start sm:justify-center gap-3 overflow-x-auto scrollbar-hide pb-4 mask-linear px-2">
                             {currentSuggestions.map((suggestion, idx) => (
                                 <button
                                     key={idx}
                                     onClick={() => handleSendMessage(suggestion)}
-                                    // Custom staggered animation style
                                     style={{ animationDelay: `${1200 + (idx * 100)}ms` }}
                                     className="shrink-0 group px-5 py-2.5 bg-pey-card/50 hover:bg-pey-card border border-pey-border hover:border-pey-accent/40 rounded-full transition-all duration-300 backdrop-blur-sm shadow-sm hover:shadow-md active:scale-95 opacity-0 animate-fade-up"
                                 >
