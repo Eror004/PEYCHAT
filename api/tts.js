@@ -33,11 +33,8 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "No API Keys available." });
     }
 
-    if (!text) {
-        return res.status(400).json({ error: "Text is required" });
-    }
+    if (!text) return res.status(400).json({ error: "Text is required" });
 
-    // --- 2. EXECUTE TTS ---
     let success = false;
     let audioData = null;
     let lastError = null;
@@ -46,6 +43,7 @@ export default async function handler(req, res) {
         try {
             const ai = new GoogleGenAI({ apiKey: currentKey });
             
+            // Model TTS Flash: Cepat & Hemat
             const response = await ai.models.generateContent({
                 model: "gemini-2.5-flash-preview-tts",
                 contents: {
@@ -70,23 +68,17 @@ export default async function handler(req, res) {
                 audioData = part.inlineData.data;
                 success = true;
                 break;
-            } else {
-                throw new Error("No audio data received from model.");
             }
 
         } catch (err) {
             lastError = err;
-            if (customApiKey) throw new Error(err.message); // Fail fast for custom key
+            if (customApiKey) throw new Error(err.message); // Custom key user gak boleh retry
             continue;
         }
     }
 
     if (!success || !audioData) {
-        let errorMsg = lastError?.message || "Unknown error";
-        if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
-            errorMsg = "⚠️ Kuota Server Habis. Gunakan Custom API Key di Settings.";
-        }
-        return res.status(503).json({ error: errorMsg });
+        return res.status(503).json({ error: "Gagal memproses suara. Server sibuk." });
     }
 
     res.status(200).json({ audio: audioData });

@@ -33,18 +33,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "No API Keys found." });
     }
 
-    if (!prompt) {
-        return res.status(400).json({ error: "Prompt is required" });
-    }
+    if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
     let success = false;
     let imageData = null;
     let lastError = null;
 
-    // Construct parts
     const parts = [];
-    
-    // Jika ada gambar source, masukkan sebagai inlineData (Image Editing Mode)
     if (image) {
         parts.push({
             inlineData: {
@@ -53,18 +48,16 @@ export default async function handler(req, res) {
             }
         });
     }
-    
     parts.push({ text: prompt });
 
     for (const currentKey of targetKeys) {
         try {
             const ai = new GoogleGenAI({ apiKey: currentKey });
             
+            // Model Image Flash: Paling efisien
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash-image',
-                contents: {
-                    parts: parts
-                },
+                contents: { parts: parts },
                 config: {},
             });
 
@@ -78,7 +71,6 @@ export default async function handler(req, res) {
                     }
                 }
             }
-
             if (success) break;
 
         } catch (err) {
@@ -89,11 +81,7 @@ export default async function handler(req, res) {
     }
 
     if (!success || !imageData) {
-        let errorMsg = lastError?.message || "Model error";
-        if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
-            errorMsg = "⚠️ Kuota Server Habis. Gunakan Custom API Key di Settings.";
-        }
-        return res.status(503).json({ error: errorMsg });
+        return res.status(503).json({ error: "Gagal membuat gambar. Server sibuk." });
     }
 
     res.status(200).json({ image: imageData });
