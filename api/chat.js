@@ -1,7 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 
 export default async function handler(req, res) {
-  // 1. Validasi Method
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
@@ -9,13 +8,11 @@ export default async function handler(req, res) {
   try {
     const { history, message, attachments, systemInstruction, customApiKey } = req.body;
 
-    // 2. TENTUKAN KEY YANG AKAN DIPAKAI
+    // 1. STRATEGI KUNCI: Prioritaskan User Key, lalu fallback ke Avengers Pool
     let targetKeys = [];
-
     if (customApiKey && customApiKey.trim().length > 0) {
-        targetKeys = [customApiKey.trim()]; // Priority 1: User Key
+        targetKeys = [customApiKey.trim()];
     } else {
-        // STRATEGI MULTI-AKUN (THE AVENGERS)
         const rawKeys = [
           process.env.PEYY_KEY,
           process.env.PEYY_KEY_1,
@@ -30,142 +27,111 @@ export default async function handler(req, res) {
           process.env.PEYY_KEY_10,
           process.env.API_KEY
         ];
-        // Filter key yang kosong (undefined atau string kosong)
-        targetKeys = rawKeys.filter(k => k && k.trim().length > 0);
-        
-        // Shuffle agar beban terbagi rata ke semua akun
-        targetKeys = targetKeys.sort(() => 0.5 - Math.random());
+        // Filter key kosong & Acak urutan agar beban terbagi
+        targetKeys = rawKeys.filter(k => k && k.trim().length > 0).sort(() => 0.5 - Math.random());
     }
 
     if (targetKeys.length === 0) {
-      return res.status(500).json({ 
-        error: "Server Error: No API Keys available. Please provide your own Key in Settings." 
-      });
+      return res.status(500).json({ error: "Server Error: Tidak ada API Key yang tersedia di sistem." });
     }
 
-    // --- PREPARE DATA ---
-    const MAX_HISTORY = 10;
-    let processedHistory = history || [];
-    
-    // Pastikan history valid (Hapus pesan kosong/error)
-    processedHistory = processedHistory
-        .filter(h => h.text && h.text.trim().length > 0) 
-        .slice(-MAX_HISTORY); 
+    // 2. DATA PREPARATION
+    const processedHistory = (history || [])
+        .filter(h => h.text && h.text.trim().length > 0)
+        .slice(-10) // Ambil 10 chat terakhir saja untuk hemat token
+        .map(h => ({
+            role: h.role === 'user' ? 'user' : 'model',
+            parts: [{ text: h.text }]
+        }));
 
-    const validHistory = processedHistory.map(h => ({
-      role: h.role === 'user' ? 'user' : 'model',
-      parts: [{ text: h.text }]
-    }));
-
-    // --- CONSTRUCT CONTENTS (URUTAN PENTING UNTUK VISION!) ---
     let contents = [];
-
-    // 1. Masukkan Attachments (Gambar/Video) DULUAN
-    if (attachments && Array.isArray(attachments)) {
-      attachments.forEach(att => {
-        contents.push({
-          inlineData: {
-            mimeType: att.mimeType,
-            data: att.data
-          }
-        });
-      });
+    if (attachments?.length > 0) {
+      attachments.forEach(att => contents.push({ inlineData: { mimeType: att.mimeType, data: att.data } }));
     }
-
-    // 2. Masukkan Text KEMUDIAN
-    if (message && typeof message === 'string' && message.trim()) {
+    if (message?.trim()) {
       contents.push({ text: message });
+    } else if (contents.length > 0) {
+      contents.push({ text: "Jelaskan ini." });
+    } else {
+       return res.status(400).json({ error: "Pesan kosong." });
     }
 
-    // Kalau user cuma kirim gambar tanpa text, kasih text default agar tidak error
-    if (contents.length > 0 && !contents.some(c => c.text)) {
-        contents.push({ text: "Jelaskan gambar ini." });
-    }
-
-    if (contents.length === 0) {
-       return res.status(400).json({ error: "Pesan tidak boleh kosong." });
-    }
-
-    // --- LOGIC EKSEKUSI ---
-    let lastError = null;
-    let success = false;
+    // 3. EKSEKUSI FAILOVER AGRESIF
     let resultStream = null;
+    let activeKey = null;
+    let lastError = null;
 
-    // Loop mencoba setiap key yang tersedia
-    for (const currentKey of targetKeys) {
+    for (const key of targetKeys) {
       try {
-          const ai = new GoogleGenAI({ apiKey: currentKey });
-          
-          // UPGRADE: Google Search Grounding & Thinking Config
+          const ai = new GoogleGenAI({ apiKey: key });
           const chat = ai.chats.create({
               model: 'gemini-3-flash-preview',
               config: { 
                 systemInstruction: systemInstruction,
-                // THINKING CONFIG: Membuat model "berpikir" sebelum menjawab.
-                // Sangat berguna untuk matematika, logika, dan pertanyaan kompleks.
-                thinkingConfig: { thinkingBudget: 2048 }, 
-                tools: [
-                  { googleSearch: {} } // Enable Google Search
-                ]
+                thinkingConfig: { thinkingBudget: 1024 }, // Hemat budget thinking
+                tools: [{ googleSearch: {} }] 
               },
-              history: validHistory,
+              history: processedHistory,
           });
 
-          // Kirim array contents (Image + Text)
           resultStream = await chat.sendMessageStream({ message: contents });
-          success = true;
-          break; // BERHASIL! Keluar loop.
+          activeKey = key; // Tandai key yang berhasil
+          break; // SUKSES! Keluar dari loop
 
       } catch (err) {
           lastError = err;
+          const errMsg = err.message || "";
           
-          if (customApiKey) {
-             throw new Error(`Custom Key Error: ${err.message}`);
-          }
+          // Jika Custom Key user salah, langsung stop, jangan failover ke akun server
+          if (customApiKey) throw new Error(`API Key kamu bermasalah: ${errMsg}`);
 
-          const isRateLimit = err.message?.includes('429') || err.message?.includes('503');
-          if (isRateLimit) {
-              console.warn(`⚠️ Key ...${currentKey.slice(-4)} sibuk/limit. Ganti ke akun berikutnya...`);
-              continue; 
+          // Cek tipe error
+          const isQuotaError = errMsg.includes('429') || errMsg.includes('503') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED');
+          
+          if (isQuotaError) {
+              console.warn(`⚠️ Key akhiran ...${key.slice(-4)} limit. Mengalihkan ke Key berikutnya...`);
+              continue; // Lanjut ke key berikutnya di array
           } else {
-              console.error(`❌ Key ...${currentKey.slice(-4)} error:`, err.message);
-              if (err.message?.includes('INVALID_ARGUMENT') || err.message?.includes('400')) {
-                   return res.status(400).json({ error: "Format request salah (400)." });
+              // Jika errornya bukan masalah kuota (misal: Bad Request), stop trying
+              console.error(`❌ Key Error (Fatal):`, errMsg);
+              if (errMsg.includes('INVALID_ARGUMENT') || errMsg.includes('400')) {
+                   return res.status(400).json({ error: "Format request tidak valid (Bad Request)." });
               }
-              continue; 
+              // Kalau error lain (misal internal server), coba key lain siapa tau hoki
+              continue;
           }
       }
     }
 
-    if (!success) {
-      let errorMsg = lastError?.message || "Server sibuk.";
+    // 4. JIKA SEMUA KEY MATI
+    if (!resultStream) {
+      console.error("ALL KEYS EXHAUSTED.");
+      let cleanMsg = "Server Sedang Penuh.";
+      const errTxt = lastError?.message || "";
       
-      // Deteksi error kuota habis (429) untuk pesan yang lebih ramah
-      if (errorMsg.includes('429') || errorMsg.includes('quota') || errorMsg.includes('RESOURCE_EXHAUSTED')) {
-          errorMsg = "⚠️ KUOTA SERVER HABIS. Sistem sedang ramai. Agar lancar, silakan masukkan API Key Google Gemini milikmu sendiri di menu Settings (Gratis).";
+      if (errTxt.includes('429') || errTxt.includes('quota') || errTxt.includes('RESOURCE_EXHAUSTED')) {
+          cleanMsg = "⚠️ SEMUA KUNCI SIBUK (10/10). Sistem sedang sangat ramai. Silakan tunggu beberapa menit atau gunakan API Key sendiri di menu Settings agar jalur khusus.";
+      } else {
+          cleanMsg = `Gagal: ${errTxt.slice(0, 100)}...`; // Potong pesan error biar ga kepanjangan
       }
-
-      console.error("All keys failed. Last error:", lastError);
-      return res.status(503).json({ error: errorMsg });
+      
+      return res.status(503).json({ error: cleanMsg });
     }
 
-    // --- STREAM RESPONSE ---
+    // 5. STREAM RESPONSE
     res.writeHead(200, {
       'Content-Type': 'text/plain; charset=utf-8',
       'Transfer-Encoding': 'chunked',
     });
 
-    // Map untuk menyimpan sumber unik (URL -> Title)
     const groundingSources = new Map();
 
     for await (const chunk of resultStream) {
-      // Extract Grounding Metadata
-      const groundingMetadata = chunk.candidates?.[0]?.groundingMetadata;
-      if (groundingMetadata?.groundingChunks) {
-        groundingMetadata.groundingChunks.forEach(c => {
-            if (c.web) {
-                groundingSources.set(c.web.uri, c.web.title || c.web.uri);
-            }
+      // Grounding extraction
+      const gMeta = chunk.candidates?.[0]?.groundingMetadata;
+      if (gMeta?.groundingChunks) {
+        gMeta.groundingChunks.forEach(c => {
+            if (c.web) groundingSources.set(c.web.uri, c.web.title || c.web.uri);
         });
       }
 
@@ -174,9 +140,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Append Sources to Response
     if (groundingSources.size > 0) {
-        res.write("\n\n---\n**📚 Sumber & Referensi:**\n");
+        res.write("\n\n---\n**📚 Referensi:**\n");
         groundingSources.forEach((title, uri) => {
             res.write(`- [${title}](${uri})\n`);
         });
@@ -185,9 +150,9 @@ export default async function handler(req, res) {
     res.end();
 
   } catch (globalError) {
-    console.error("Fatal Handler Error:", globalError);
+    console.error("Handler Crash:", globalError);
     if (!res.headersSent) {
-        res.status(500).json({ error: "Error: " + globalError.message });
+        res.status(500).json({ error: globalError.message });
     }
   }
 }
